@@ -21,7 +21,8 @@
       <p class="eyebrow">V1 · Stack gratis</p>
       <h1>Pantau kurs tanpa ribet</h1>
       <p class="subtext">
-        Dashboard ringkas untuk memantau pergerakan IDR terhadap AUD, SGD, JPY, USD, dan pair populer lainnya.
+        Dashboard ringkas untuk memantau pergerakan IDR terhadap AUD, USD, SGD, JPY, dan GBP
+        dalam satu tampilan.
       </p>
     </div>
 
@@ -43,7 +44,7 @@
         <div class="section-head">
           <div>
             <h2>Kontrol</h2>
-            <p>Atur pair, periode, dan mode konversi.</p>
+            <p>Atur pair, periode, nominal, dan mode konversi.</p>
           </div>
         </div>
 
@@ -51,7 +52,7 @@
           <label class="field">
             <span>Mata uang</span>
             <select id="currencySelect">
-              <option value="AUD">AUD</option>
+              <option value="AUD" selected>AUD</option>
               <option value="USD">USD</option>
               <option value="SGD">SGD</option>
               <option value="JPY">JPY</option>
@@ -71,10 +72,18 @@
           <label class="field field-span-2">
             <span>Mode konversi</span>
             <div class="switch-row">
-              <button class="switch-btn active" type="button" data-mode="IDR_TO_FX">
+              <button
+                class="switch-btn active"
+                type="button"
+                data-mode="IDR_TO_FX"
+              >
                 IDR → Valas
               </button>
-              <button class="switch-btn" type="button" data-mode="FX_TO_IDR">
+              <button
+                class="switch-btn"
+                type="button"
+                data-mode="FX_TO_IDR"
+              >
                 Valas → IDR
               </button>
             </div>
@@ -82,7 +91,13 @@
 
           <label class="field">
             <span>Nominal</span>
-            <input id="amountInput" type="number" min="0" value="1000000" />
+            <input
+              id="amountInput"
+              type="number"
+              min="0"
+              value="1000000"
+              inputmode="numeric"
+            />
           </label>
 
           <div class="field action-field">
@@ -133,7 +148,7 @@
         <div class="section-head">
           <div>
             <h2>Kurs lainnya</h2>
-            <p>Klik card kecil untuk membuka analisis pair tersebut.</p>
+            <p>Klik card kecil untuk mengganti pair utama dan melihat tren lengkapnya.</p>
           </div>
         </div>
 
@@ -159,7 +174,7 @@
         <div class="section-head">
           <div>
             <h2>Ringkasan cepat</h2>
-            <p>Gabungan tren harga dan konteks data yang tersedia.</p>
+            <p>Gabungan arah tren dan pembacaan singkat untuk pair aktif.</p>
           </div>
 
           <span id="biasBadge" class="badge neutral">Netral</span>
