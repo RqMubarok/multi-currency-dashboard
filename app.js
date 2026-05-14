@@ -2,12 +2,26 @@ const state = {
   mode: "IDR_TO_FX",
   chart: null,
   latestRateValue: null,
-  watchlist: readStorage("currency-watchlist", []),
-  theme: readStorage("currency-theme", "light"),
+  latestDate: null,
+  watchlist: [],
+  theme: "light",
 };
 
 const MARKET_CURRENCIES = ["USD", "SGD", "AUD", "JPY", "EUR", "GBP"];
 const sparklineCharts = new Map();
+
+const CURRENCY_META = {
+  USD: { icon: "🇺🇸", name: "US Dollar" },
+  SGD: { icon: "🇸🇬", name: "Singapore Dollar" },
+  AUD: { icon: "🇦🇺", name: "Australian Dollar" },
+  JPY: { icon: "🇯🇵", name: "Japanese Yen" },
+  EUR: { icon: "🇪🇺", name: "Euro" },
+  GBP: { icon: "🇬🇧", name: "Pound Sterling" },
+  CNY: { icon: "🇨🇳", name: "Chinese Yuan" },
+  MYR: { icon: "🇲🇾", name: "Malaysian Ringgit" },
+  HKD: { icon: "🇭🇰", name: "Hong Kong Dollar" },
+  SAR: { icon: "🇸🇦", name: "Saudi Riyal" },
+};
 
 const currencySelect = document.getElementById("currencySelect");
 const rangeSelect = document.getElementById("rangeSelect");
@@ -27,15 +41,24 @@ const chartMetaEl = document.getElementById("chartMeta");
 
 const chartStateEl = document.getElementById("chartState");
 const newsStateEl = document.getElementById("newsState");
+const watchlistStateEl = document.getElementById("watchlistState");
+
 const newsListEl = document.getElementById("newsList");
 const watchlistItemsEl = document.getElementById("watchlistItems");
 const marketsGridEl = document.getElementById("marketsGrid");
 
+const dataSourceTextEl = document.getElementById("dataSourceText");
+const lastUpdatedTextEl = document.getElementById("lastUpdatedText");
+
 init();
 
 async function init() {
+  state.watchlist = readStorage("currency-watchlist", []);
+  state.theme = readStorage("currency-theme", "light");
+
   applyTheme(state.theme);
   bindEvents();
+  renderCurrencyOptions();
   renderWatchlist();
   await runAnalysis();
 }
@@ -43,10 +66,7 @@ async function init() {
 function bindEvents() {
   document.querySelectorAll(".switch-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      document.querySelectorAll(".switch-btn").forEach((btn) => {
-        btn.classList.remove("active");
-      });
-
+      document.querySelectorAll(".switch-btn").forEach((btn) => btn.classList.remove("active"));
       button.classList.add("active");
       state.mode = button.dataset.mode;
       updateConversionOnly();
@@ -57,34 +77,21 @@ function bindEvents() {
   watchlistBtn.addEventListener("click", addCurrentCurrencyToWatchlist);
   clearWatchlistBtn.addEventListener("click", clearWatchlist);
 
-  currencySelect.addEventListener("change", () => {
-    runAnalysis();
-  });
-
-  rangeSelect.addEventListener("change", () => {
-    runAnalysis();
-  });
-
-  amountInput.addEventListener("input", () => {
-    updateConversionOnly();
-  });
+  currencySelect.addEventListener("change", runAnalysis);
+  rangeSelect.addEventListener("change", runAnalysis);
+  amountInput.addEventListener("input", updateConversionOnly);
 
   themeToggle.addEventListener("click", () => {
     const nextTheme =
-      document.documentElement.getAttribute("data-theme") === "dark"
-        ? "light"
-        : "dark";
+      document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
 
     state.theme = nextTheme;
     writeStorage("currency-theme", nextTheme);
     applyTheme(nextTheme);
-
-    if (state.chart) {
-      updateChartTheme();
-    }
+    updateChartTheme();
 
     if (marketsGridEl?.children.length) {
-      runAnalysis();
+      renderMarketSnapshotsFromExisting();
     }
   });
 }
@@ -128,6 +135,58 @@ function setUIState(element, type, message) {
   element.textContent = message;
 }
 
+function renderCurrencyOptions() {
+  const selected = currencySelect.value;
+  const options = Array.from(currencySelect.options).map((option) => option.value);
+
+  currencySelect.innerHTML = options
+    .map((code) => {
+      const meta = getCurrencyMeta(code);
+      return `
+        <option value="${code}" ${selected === code ? "selected" : ""}>
+          ${meta.icon} ${code}
+        </option>
+      `;
+    })
+    .join("");
+}
+
+function getCurrencyMeta(code) {
+  return CURRENCY_META[code] || { icon: "💱", name: code };
+}
+
+function buildDate(daysAgo) {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().split("T")[0];
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function formatNumber(value, digits = 2) {
   return Number(value).toLocaleString("id-ID", {
     minimumFractionDigits: digits,
@@ -142,22 +201,49 @@ function formatCompactNumber(value, digits = 0) {
   });
 }
 
-function formatNewsDate(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return date.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
+function formatSplitNumber(value, digits = 2) {
+  const isNegative = Number(value) < 0;
+  const abs = Math.abs(Number(value));
+  const fixed = abs.toLocaleString("id-ID", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   });
+
+  const [intPart, decimalPart = "00"] = fixed.split(",");
+  return {
+    sign: isNegative ? "-" : "",
+    intPart,
+    decimalPart,
+  };
 }
 
-function buildDate(daysAgo) {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  return date.toISOString().split("T")[0];
+function renderSplitNumber(value, options = {}) {
+  const {
+    digits = 2,
+    prefix = "",
+    suffix = "",
+    positiveSign = false,
+  } = options;
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return `<span class="number-main">-</span>`;
+
+  const { sign, intPart, decimalPart } = formatSplitNumber(numeric, digits);
+  const computedSign = positiveSign && numeric > 0 ? "+" : sign;
+
+  return `
+    <span class="number-main">${escapeHtml(prefix)}${computedSign}${escapeHtml(intPart)}</span>
+    <span class="number-decimal">,${escapeHtml(decimalPart)}</span>
+    ${suffix ? `<span class="number-suffix">${escapeHtml(suffix)}</span>` : ""}
+  `;
+}
+
+function renderPlainMetric(text) {
+  return `<span class="number-main">${escapeHtml(text)}</span>`;
+}
+
+function updateMetric(el, html) {
+  el.innerHTML = html;
 }
 
 function simpleForecast(values) {
@@ -168,10 +254,29 @@ function simpleForecast(values) {
   if (recent.length < 2) return recent[recent.length - 1];
 
   const deltas = recent.slice(1).map((value, index) => value - recent[index]);
-  const averageDelta =
-    deltas.reduce((sum, value) => sum + value, 0) / deltas.length;
+  const avgDelta = deltas.reduce((sum, val) => sum + val, 0) / deltas.length;
+  return recent[recent.length - 1] + avgDelta * 5;
+}
 
-  return recent[recent.length - 1] + averageDelta * 7;
+function classifyIndicativeDirection(latest, forecast) {
+  if (!Number.isFinite(latest) || !Number.isFinite(forecast)) {
+    return { label: "Netral", badge: "neutral" };
+  }
+
+  const pct = ((forecast - latest) / latest) * 100;
+
+  if (pct > 0.3) return { label: "Cenderung naik", badge: "bullish" };
+  if (pct < -0.3) return { label: "Cenderung turun", badge: "bearish" };
+  return { label: "Relatif stabil", badge: "neutral" };
+}
+
+function updateLastUpdated(dateValue) {
+  state.latestDate = dateValue || new Date().toISOString();
+  lastUpdatedTextEl.textContent = formatDateTime(state.latestDate);
+}
+
+function updateDataSourceText() {
+  dataSourceTextEl.textContent = "Frankfurter · Google News RSS";
 }
 
 async function fetchRates(currency, days) {
@@ -180,7 +285,6 @@ async function fetchRates(currency, days) {
   const url = `https://api.frankfurter.dev/v1/${start}..${end}?base=${currency}&symbols=IDR`;
 
   let response;
-
   try {
     response = await fetch(url, { cache: "no-store" });
   } catch {
@@ -220,19 +324,14 @@ async function fetchLiveNews(currency) {
 
   try {
     const response = await fetch(apiUrl, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("Gagal mengambil feed berita.");
-    }
+    if (!response.ok) throw new Error("Gagal mengambil feed berita.");
 
     const data = await response.json();
-
-    if (!data.items || !Array.isArray(data.items)) {
-      return [];
-    }
+    if (!data.items || !Array.isArray(data.items)) return [];
 
     return data.items.slice(0, 6).map((item) => ({
       title: item.title || "Tanpa judul",
-      description: item.author || item.source || "Google News",
+      source: item.author || item.source || "Google News",
       url: item.link || "#",
       pubDate: item.pubDate || "",
     }));
@@ -243,27 +342,36 @@ async function fetchLiveNews(currency) {
 
 function renderNews(items) {
   if (!items.length) {
+    setUIState(newsStateEl, "success", "Tidak ada berita yang cocok untuk pair ini saat ini.");
     newsListEl.innerHTML = `
       <article class="news-item">
-        <strong>Belum ada berita yang cocok</strong>
+        <strong>Belum ada berita relevan</strong>
         <p>Coba ganti pair atau perbarui data beberapa saat lagi.</p>
       </article>
     `;
     return;
   }
 
+  setUIState(newsStateEl, "", "");
+
   newsListEl.innerHTML = items
     .map((item) => {
-      const meta = [item.description, formatNewsDate(item.pubDate)]
-        .filter(Boolean)
-        .join(" · ");
+      const source = item.source || "Google News";
+      const dateText = formatDateOnly(item.pubDate) || "Tanggal tidak tersedia";
 
       return `
         <article class="news-item">
-          <a href="${item.url}" target="_blank" rel="noopener noreferrer">
-            ${escapeHtml(item.title)}
-          </a>
-          <p>${escapeHtml(meta || "Google News")}</p>
+          <div class="news-item-top">
+            <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
+              ${escapeHtml(item.title)}
+            </a>
+          </div>
+          <div class="news-meta">${escapeHtml(source)} · ${escapeHtml(dateText)}</div>
+          <p>
+            <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
+              Buka sumber berita
+            </a>
+          </p>
         </article>
       `;
     })
@@ -274,7 +382,10 @@ function addCurrentCurrencyToWatchlist() {
   const currency = currencySelect.value;
   const exists = state.watchlist.some((entry) => entry.currency === currency);
 
-  if (exists) return;
+  if (exists) {
+    setUIState(watchlistStateEl, "success", `${currency} sudah ada di daftar pantauan.`);
+    return;
+  }
 
   state.watchlist.push({
     currency,
@@ -283,16 +394,19 @@ function addCurrentCurrencyToWatchlist() {
 
   writeStorage("currency-watchlist", state.watchlist);
   renderWatchlist();
+  setUIState(watchlistStateEl, "success", `${currency} ditambahkan ke daftar pantauan.`);
 }
 
 function clearWatchlist() {
   state.watchlist = [];
   writeStorage("currency-watchlist", state.watchlist);
   renderWatchlist();
+  setUIState(watchlistStateEl, "success", "Daftar pantauan dikosongkan.");
 }
 
 function renderWatchlist() {
   if (!state.watchlist.length) {
+    setUIState(watchlistStateEl, "success", "Belum ada pair yang disimpan.");
     watchlistItemsEl.innerHTML = `
       <article class="watch-item">
         <strong>Belum ada pair di pantauan</strong>
@@ -302,12 +416,17 @@ function renderWatchlist() {
     return;
   }
 
+  setUIState(watchlistStateEl, "", "");
+
   watchlistItemsEl.innerHTML = state.watchlist
     .map((item) => {
+      const meta = getCurrencyMeta(item.currency);
       return `
         <article class="watch-item">
-          <strong>${escapeHtml(item.currency)}</strong>
-          <p>Disimpan di browser ini.</p>
+          <div class="watch-item-top">
+            <strong>${meta.icon} ${escapeHtml(item.currency)}</strong>
+          </div>
+          <p>Disimpan pada ${escapeHtml(formatDateTime(item.savedAt))}.</p>
         </article>
       `;
     })
@@ -319,53 +438,31 @@ function updateConversionOnly() {
   const currency = currencySelect.value;
   const latest = state.latestRateValue;
 
-  if (!latest || Number.isNaN(amount)) {
-    conversionResultEl.textContent = "-";
+  if (!Number.isFinite(latest) || Number.isNaN(amount)) {
+    updateMetric(conversionResultEl, renderPlainMetric("-"));
     return;
   }
 
   if (state.mode === "IDR_TO_FX") {
-    conversionResultEl.textContent = `${formatNumber(amount / latest, 2)} ${currency}`;
+    const result = amount / latest;
+    updateMetric(conversionResultEl, renderSplitNumber(result, { digits: 2, suffix: currency }));
   } else {
-    conversionResultEl.textContent = `${formatCompactNumber(amount * latest, 0)} IDR`;
+    const result = amount * latest;
+    updateMetric(conversionResultEl, renderSplitNumber(result, { digits: 2, suffix: "IDR" }));
   }
 }
 
-function buildVerdict(currency, latest, first, forecast, headlineCount) {
-  const change = latest - first;
-  const percentChange = ((latest - first) / first) * 100;
-
-  let bias = "neutral";
+function buildVerdict(currency, latest, first, indicative, headlineCount) {
+  const pct = ((latest - first) / first) * 100;
   let directionWord = "relatif stabil";
 
-  if (change > 0) {
-    bias = "bullish";
-    directionWord = "menguat";
-  } else if (change < 0) {
-    bias = "bearish";
-    directionWord = "melemah";
-  }
+  if (pct > 0) directionWord = "menguat";
+  if (pct < 0) directionWord = "melemah";
 
-  let forecastText = "dengan arah jangka pendek yang cenderung datar";
-  if (forecast > latest) {
-    forecastText = "dengan tekanan naik jangka pendek";
-  } else if (forecast < latest) {
-    forecastText = "dengan tekanan turun jangka pendek";
-  }
-
-  return {
-    bias,
-    label:
-      bias === "bullish"
-        ? "Menguat"
-        : bias === "bearish"
-        ? "Melemah"
-        : "Netral",
-    text: `${currency} ${directionWord} terhadap IDR pada periode terpilih (${formatNumber(
-      percentChange,
-      2
-    )}%), ${forecastText}. Headline terkait saat ini berjumlah ${headlineCount} item dan sebaiknya dibaca sebagai pendamping sentimen, bukan kepastian arah pasar.`,
-  };
+  return `${currency} ${directionWord} terhadap IDR pada periode terpilih (${formatNumber(
+    pct,
+    2
+  )}%). Arah indikatif saat ini ${indicative.label.toLowerCase()}, dan berita terkait tersedia sebanyak ${headlineCount} item untuk membantu membaca konteks, bukan memastikan arah pasar.`;
 }
 
 function getChartColors() {
@@ -409,13 +506,9 @@ function renderChart(labels, values, currency) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: {
-          duration: 300,
-        },
+        animation: { duration: 280 },
         plugins: {
-          legend: {
-            display: false,
-          },
+          legend: { display: false },
           tooltip: {
             mode: "index",
             intersect: false,
@@ -545,7 +638,11 @@ async function fetchMarketSnapshots(days = 14) {
   return items.filter(Boolean);
 }
 
+let latestMarketSnapshotItems = [];
+
 function renderMarketSnapshots(items) {
+  latestMarketSnapshotItems = items;
+
   if (!marketsGridEl) return;
 
   if (!items.length) {
@@ -562,11 +659,8 @@ function renderMarketSnapshots(items) {
       const trend = getTrendMeta(item.deltaPct);
       const absolutePrefix = item.absoluteChange >= 0 ? "+" : "-";
       const deltaClass =
-        item.absoluteChange > 0
-          ? "up"
-          : item.absoluteChange < 0
-          ? "down"
-          : "flat";
+        item.absoluteChange > 0 ? "up" : item.absoluteChange < 0 ? "down" : "flat";
+      const meta = getCurrencyMeta(item.currency);
 
       return `
         <button
@@ -576,14 +670,19 @@ function renderMarketSnapshots(items) {
           aria-label="Buka analisis ${item.currency} terhadap IDR"
         >
           <div class="market-card-head">
-            <div>
-              <span class="market-card-pair">${item.currency} / IDR</span>
-              <div class="market-card-subrate">Pair populer</div>
+            <div class="market-card-identity">
+              <span class="currency-logo" aria-hidden="true">${meta.icon}</span>
+              <div class="market-card-pair-wrap">
+                <span class="market-card-pair">${item.currency} / IDR</span>
+                <div class="market-card-subrate">${escapeHtml(meta.name)}</div>
+              </div>
             </div>
           </div>
 
           <div class="market-card-main">
-            <strong class="market-card-rate">${formatNumber(item.latest, 2)}</strong>
+            <div class="market-card-rate">
+              ${renderSplitNumber(item.latest, { digits: 2 })}
+            </div>
 
             <div class="market-card-change-wrap">
               <span class="market-card-delta ${deltaClass}">
@@ -611,9 +710,7 @@ function renderMarketSnapshots(items) {
 
     const positive = item.deltaPct >= 0;
     const lineColor = positive ? "#17803d" : "#b42318";
-    const fillColor = positive
-      ? "rgba(23, 128, 61, 0.10)"
-      : "rgba(180, 35, 24, 0.10)";
+    const fillColor = positive ? "rgba(23, 128, 61, 0.10)" : "rgba(180, 35, 24, 0.10)";
 
     const chart = new Chart(canvas, {
       type: "line",
@@ -658,18 +755,29 @@ function renderMarketSnapshots(items) {
   });
 }
 
+function renderMarketSnapshotsFromExisting() {
+  if (latestMarketSnapshotItems.length) {
+    renderMarketSnapshots(latestMarketSnapshotItems);
+  }
+}
+
 function setLoadingState() {
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = "Memperbarui...";
+
   chartMetaEl.textContent = "Mengambil data historis terbaru...";
   verdictTextEl.textContent = "Sedang menyusun ringkasan pair aktif.";
-  latestRateEl.textContent = "-";
-  pastCompareEl.textContent = "-";
-  forecastValueEl.textContent = "-";
-  conversionResultEl.textContent = "-";
+
+  updateMetric(latestRateEl, renderPlainMetric("-"));
+  updateMetric(pastCompareEl, renderPlainMetric("-"));
+  updateMetric(forecastValueEl, renderPlainMetric("-"));
+  updateMetric(conversionResultEl, renderPlainMetric("-"));
 
   biasBadgeEl.textContent = "Netral";
   biasBadgeEl.className = "badge neutral";
+
+  updateDataSourceText();
+  updateLastUpdated(new Date().toISOString());
 
   setUIState(chartStateEl, "loading", "Grafik sedang dimuat...");
   setUIState(newsStateEl, "loading", "Berita terbaru sedang dimuat...");
@@ -733,34 +841,37 @@ async function runAnalysis() {
     const latest = values[values.length - 1];
     const forecast = simpleForecast(values);
     const deltaPct = ((latest - first) / first) * 100;
+    const indicative = classifyIndicativeDirection(latest, forecast);
 
     state.latestRateValue = latest;
 
-    latestRateEl.textContent = `1 ${currency} = ${formatNumber(latest, 2)} IDR`;
-    pastCompareEl.textContent = `${deltaPct >= 0 ? "+" : ""}${formatNumber(deltaPct, 2)}%`;
-    forecastValueEl.textContent = `~${formatNumber(forecast, 2)} IDR`;
+    updateMetric(latestRateEl, renderSplitNumber(latest, { digits: 2, suffix: "IDR" }));
+    updateMetric(pastCompareEl, renderSplitNumber(deltaPct, { digits: 2, suffix: "%", positiveSign: true }));
+    updateMetric(conversionResultEl, renderPlainMetric("-"));
+    updateMetric(forecastValueEl, renderPlainMetric(indicative.label));
 
     updateConversionOnly();
     renderChart(labels, values, currency);
     renderMarketSnapshots(marketItems);
     renderNews(headlines);
 
-    chartMetaEl.textContent = `Periode ${days} hari · sumber data: Frankfurter`;
+    chartMetaEl.textContent = `Periode ${days} hari · ${currency}/IDR · referensi kurs harian`;
+    verdictTextEl.textContent = buildVerdict(currency, latest, first, indicative, headlines.length);
+    biasBadgeEl.textContent = indicative.label;
+    biasBadgeEl.className = `badge ${indicative.badge}`;
 
-    const verdict = buildVerdict(currency, latest, first, forecast, headlines.length);
-    verdictTextEl.textContent = verdict.text;
-    biasBadgeEl.textContent = verdict.label;
-    biasBadgeEl.className = `badge ${verdict.bias}`;
+    updateDataSourceText();
+    updateLastUpdated(new Date().toISOString());
 
     setUIState(chartStateEl, "", "");
-    setUIState(newsStateEl, "", "");
   } catch (error) {
     state.latestRateValue = null;
 
-    latestRateEl.textContent = "-";
-    pastCompareEl.textContent = "-";
-    forecastValueEl.textContent = "-";
-    conversionResultEl.textContent = "-";
+    updateMetric(latestRateEl, renderPlainMetric("-"));
+    updateMetric(pastCompareEl, renderPlainMetric("-"));
+    updateMetric(forecastValueEl, renderPlainMetric("-"));
+    updateMetric(conversionResultEl, renderPlainMetric("-"));
+
     chartMetaEl.textContent = "Gagal memuat data historis.";
     verdictTextEl.textContent =
       error?.message || "Analisis gagal dimuat. Coba lagi beberapa saat.";
@@ -774,10 +885,8 @@ async function runAnalysis() {
       </article>
     `;
 
-    if (marketsGridEl) {
-      destroySparklineCharts();
-      marketsGridEl.innerHTML = `<div class="market-empty">Gagal memuat pair lain.</div>`;
-    }
+    destroySparklineCharts();
+    marketsGridEl.innerHTML = `<div class="market-empty">Gagal memuat pair lain.</div>`;
 
     setUIState(chartStateEl, "error", error?.message || "Gagal memuat data grafik.");
     setUIState(newsStateEl, "error", "Gagal memuat daftar berita.");
