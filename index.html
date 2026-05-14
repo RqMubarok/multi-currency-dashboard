@@ -16,13 +16,13 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <header class="topbar">
+  <header class="topbar topbar-compact">
     <div class="topbar-copy">
-      <p class="eyebrow">V1 · Stack gratis</p>
+      <p class="eyebrow">Dashboard kurs pribadi</p>
       <h1>Pantau kurs tanpa ribet</h1>
       <p class="subtext">
-        Dashboard ringkas untuk memantau pergerakan IDR terhadap mata uang utama,
-        lengkap dengan market strip, tren historis, dan berita terkait.
+        Pilih mata uang, masukkan nominal, lalu lihat kurs terbaru, hasil konversi,
+        dan perubahan dalam periode yang kamu pilih.
       </p>
     </div>
 
@@ -40,17 +40,18 @@
 
   <main class="layout">
     <section class="dashboard-shell">
+      <!-- Kontrol utama -->
       <section class="panel controls-panel">
         <div class="section-head">
           <div>
-            <h2>Kontrol</h2>
-            <p>Atur pair, periode, nominal, dan mode konversi.</p>
+            <h2>Atur mata uang & nominal</h2>
+            <p>Pilih pair, periode, arah konversi, dan nominal yang ingin dihitung.</p>
           </div>
         </div>
 
         <div class="control-grid control-grid-optimized">
           <label class="field">
-            <span>Mata uang</span>
+            <span>Mata uang tujuan</span>
             <select id="currencySelect">
               <option value="AUD" selected>AUD</option>
               <option value="USD">USD</option>
@@ -71,7 +72,7 @@
           </label>
 
           <label class="field field-span-2">
-            <span>Mode konversi</span>
+            <span>Arah konversi</span>
             <div class="switch-row">
               <button
                 class="switch-btn active"
@@ -94,34 +95,35 @@
             <span>Nominal</span>
             <input
               id="amountInput"
-              type="number"
-              min="0"
-              value="1000000"
-              inputmode="numeric"
+              type="text"
+              inputmode="decimal"
+              value="1.000.000"
+              placeholder="Masukkan nominal"
             />
           </label>
 
           <div class="field action-field">
-            <span>Aksi</span>
+            <span>Pantauan</span>
             <button id="watchlistBtn" class="ghost-btn action-soft" type="button">
-              Tambah ke pantauan
+              Simpan pair ini
             </button>
           </div>
 
           <div class="field action-field">
-            <span>Analisis</span>
+            <span>Data</span>
             <button id="analyzeBtn" class="primary-btn" type="button">
-              Perbarui analisis
+              Perbarui hasil
             </button>
           </div>
         </div>
       </section>
 
+      <!-- Hasil utama -->
       <section class="summary-block">
         <div class="section-head section-head-tight">
           <div>
-            <h2>Ringkasan</h2>
-            <p>Data utama untuk pair aktif pada periode terpilih.</p>
+            <h2>Hasil utama</h2>
+            <p>Lihat angka terpenting untuk pair aktif dalam satu tampilan.</p>
           </div>
         </div>
 
@@ -132,12 +134,12 @@
           </article>
 
           <article class="panel stat-card">
-            <span class="stat-label">Perubahan %</span>
+            <span class="stat-label">Perubahan periode</span>
             <strong id="pastCompare">-</strong>
           </article>
 
           <article class="panel stat-card">
-            <span class="stat-label">Nominal konversi</span>
+            <span class="stat-label">Hasil konversi</span>
             <strong id="conversionResult">-</strong>
           </article>
 
@@ -145,90 +147,103 @@
             <span class="stat-label">Arah indikatif</span>
             <strong id="forecastValue">-</strong>
             <small class="stat-disclaimer">
-              Indikatif, bukan prediksi pasar.
+              Dibaca sebagai sinyal ringkas, bukan prediksi pasar.
             </small>
           </article>
         </div>
       </section>
 
-      <section class="panel meta-panel">
-        <div class="meta-grid">
-          <div class="meta-item">
-            <span class="meta-label">Data source</span>
-            <strong id="dataSourceText">Frankfurter · Google News</strong>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Last updated</span>
-            <strong id="lastUpdatedText">-</strong>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel markets-panel">
-        <div class="section-head">
-          <div>
-            <h2>Kurs lainnya</h2>
-            <p>Geser untuk melihat pair lain, klik untuk membuka analisis.</p>
-          </div>
-        </div>
-
-        <div id="marketsGrid" class="markets-grid"></div>
-      </section>
-
+      <!-- Grafik -->
       <section class="panel chart-panel">
         <div class="section-head">
           <div>
-            <h2>Tren kurs</h2>
-            <p id="chartMeta">Pergerakan historis untuk pair terpilih.</p>
+            <h2>Pergerakan kurs</h2>
+            <p id="chartMeta">Lihat perubahan nilai tukar untuk pair yang sedang dipilih.</p>
           </div>
         </div>
 
-        <div id="chartState" class="ui-state hidden"></div>
+        <div id="chartState" class="ui-state hidden">
+          Grafik akan tampil setelah data kurs berhasil dimuat.
+        </div>
 
         <div class="chart-wrap">
           <canvas id="rateChart"></canvas>
         </div>
       </section>
 
+      <!-- Insight singkat -->
       <section class="panel verdict-panel">
         <div class="section-head">
           <div>
-            <h2>Ringkasan cepat</h2>
-            <p>Gabungan arah tren dan konteks berita untuk pair aktif.</p>
+            <h2>Insight singkat</h2>
+            <p>Bacaan cepat dari perubahan kurs dan berita terbaru untuk pair aktif.</p>
           </div>
 
           <span id="biasBadge" class="badge neutral">Netral</span>
         </div>
 
-        <p id="verdictText">Pilih pair atau perbarui data untuk melihat ringkasan.</p>
+        <p id="verdictText">
+          Insight akan muncul setelah kamu memilih mata uang dan memperbarui data.
+        </p>
       </section>
 
+      <!-- Kurs lainnya -->
+      <section class="panel markets-panel">
+        <div class="section-head">
+          <div>
+            <h2>Kurs lainnya</h2>
+            <p>Geser untuk melihat pair lain dan buka analisisnya dengan sekali tap.</p>
+          </div>
+        </div>
+
+        <div id="marketsGrid" class="markets-grid"></div>
+      </section>
+
+      <!-- Meta data -->
+      <section class="panel meta-panel">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Sumber data</span>
+            <strong id="dataSourceText">Frankfurter · Google News RSS</strong>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Terakhir diperbarui</span>
+            <strong id="lastUpdatedText">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kurs tersimpan & berita -->
       <section class="detail-grid">
         <section class="panel watchlist-panel">
           <div class="section-head">
             <div>
-              <h2>Daftar pantauan</h2>
-              <p>Tersimpan di browser ini.</p>
+              <h2>Kurs tersimpan</h2>
+              <p>Simpan pair yang sering kamu cek agar lebih cepat dibuka lagi.</p>
             </div>
 
             <button id="clearWatchlist" class="ghost-btn action-link" type="button">
-              Kosongkan
+              Hapus semua
             </button>
           </div>
 
-          <div id="watchlistState" class="ui-state hidden"></div>
+          <div id="watchlistState" class="ui-state hidden">
+            Belum ada kurs yang disimpan. Tambahkan pair yang sering kamu cek agar aksesnya lebih cepat.
+          </div>
           <div id="watchlistItems" class="watchlist-items"></div>
         </section>
 
         <section class="panel news-panel">
           <div class="section-head">
             <div>
-              <h2>Berita terkait</h2>
-              <p>Headline terbaru untuk membantu membaca sentimen pair aktif.</p>
+              <h2>Berita penggerak kurs</h2>
+              <p>Headline terbaru yang bisa membantu membaca sentimen pair aktif.</p>
             </div>
           </div>
 
-          <div id="newsState" class="ui-state hidden"></div>
+          <div id="newsState" class="ui-state hidden">
+            Belum ada berita untuk pair ini. Coba ganti mata uang atau perbarui data beberapa saat lagi.
+          </div>
           <div id="newsList" class="news-list"></div>
         </section>
       </section>
