@@ -48,7 +48,7 @@
           </div>
         </div>
 
-        <div class="control-grid">
+        <div class="control-grid control-grid-optimized">
           <label class="field">
             <span>Mata uang</span>
             <select id="currencySelect">
@@ -90,7 +90,7 @@
             </div>
           </label>
 
-          <label class="field">
+          <label class="field field-span-2">
             <span>Nominal</span>
             <input
               id="amountInput"
@@ -102,16 +102,19 @@
           </label>
 
           <div class="field action-field">
-            <span>Pantauan</span>
+            <span>Aksi</span>
             <button id="watchlistBtn" class="ghost-btn action-soft" type="button">
               Tambah ke pantauan
             </button>
           </div>
-        </div>
 
-        <button id="analyzeBtn" class="primary-btn full-width" type="button">
-          Perbarui analisis
-        </button>
+          <div class="field action-field">
+            <span>Analisis</span>
+            <button id="analyzeBtn" class="primary-btn" type="button">
+              Perbarui analisis
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="summary-block">
@@ -122,26 +125,42 @@
           </div>
         </div>
 
-        <div class="cards-grid">
+        <div class="cards-grid cards-grid-strong">
           <article class="panel stat-card stat-card-primary">
             <span class="stat-label">Kurs terbaru</span>
             <strong id="latestRate">-</strong>
           </article>
 
           <article class="panel stat-card">
-            <span class="stat-label">Perubahan periode</span>
+            <span class="stat-label">Perubahan %</span>
             <strong id="pastCompare">-</strong>
           </article>
 
           <article class="panel stat-card">
-            <span class="stat-label">Proyeksi sederhana</span>
-            <strong id="forecastValue">-</strong>
+            <span class="stat-label">Nominal konversi</span>
+            <strong id="conversionResult">-</strong>
           </article>
 
           <article class="panel stat-card">
-            <span class="stat-label">Hasil konversi</span>
-            <strong id="conversionResult">-</strong>
+            <span class="stat-label">Arah indikatif</span>
+            <strong id="forecastValue">-</strong>
+            <small class="stat-disclaimer">
+              Indikatif, bukan prediksi pasar.
+            </small>
           </article>
+        </div>
+      </section>
+
+      <section class="panel meta-panel">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Data source</span>
+            <strong id="dataSourceText">Frankfurter · Google News</strong>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Last updated</span>
+            <strong id="lastUpdatedText">-</strong>
+          </div>
         </div>
       </section>
 
@@ -175,7 +194,7 @@
         <div class="section-head">
           <div>
             <h2>Ringkasan cepat</h2>
-            <p>Gabungan arah tren dan pembacaan singkat untuk pair aktif.</p>
+            <p>Gabungan arah tren dan konteks berita untuk pair aktif.</p>
           </div>
 
           <span id="biasBadge" class="badge neutral">Netral</span>
@@ -197,6 +216,7 @@
             </button>
           </div>
 
+          <div id="watchlistState" class="ui-state hidden"></div>
           <div id="watchlistItems" class="watchlist-items"></div>
         </section>
 
