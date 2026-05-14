@@ -7,7 +7,10 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
 
   <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,149 +21,168 @@
       <p class="eyebrow">V1 · Stack gratis</p>
       <h1>Pantau kurs tanpa ribet</h1>
       <p class="subtext">
-        Dashboard sederhana untuk memantau pergerakan IDR terhadap AUD, SGD, JPY, dan USD.
+        Dashboard ringkas untuk memantau pergerakan IDR terhadap AUD, SGD, JPY, dan USD.
       </p>
     </div>
 
-    <button id="themeToggle" class="ghost-btn icon-btn" type="button" aria-label="Ganti tema">
-      🌗
-    </button>
+    <div class="topbar-actions">
+      <button
+        id="themeToggle"
+        class="ghost-btn icon-btn"
+        type="button"
+        aria-label="Ganti tema"
+      >
+        🌗
+      </button>
+    </div>
   </header>
 
   <main class="layout">
-    <section class="panel controls-panel">
-      <div class="section-head">
-        <div>
-          <h2>Kontrol</h2>
-          <p>Atur mata uang, periode, dan mode konversi.</p>
-        </div>
-      </div>
-
-      <div class="grid-two">
-        <label class="field">
-          <span>Mata uang</span>
-          <select id="currencySelect">
-            <option value="AUD">AUD</option>
-            <option value="SGD">SGD</option>
-            <option value="JPY">JPY</option>
-            <option value="USD">USD</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Periode</span>
-          <select id="rangeSelect">
-            <option value="7">7 hari</option>
-            <option value="14">14 hari</option>
-            <option value="30" selected>30 hari</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="switch-row">
-        <button class="switch-btn active" type="button" data-mode="IDR_TO_FX">IDR → Valas</button>
-        <button class="switch-btn" type="button" data-mode="FX_TO_IDR">Valas → IDR</button>
-      </div>
-
-      <div class="grid-two">
-        <label class="field">
-          <span>Nominal</span>
-          <input id="amountInput" type="number" min="0" value="1000000" />
-        </label>
-
-        <div class="field action-field">
-          <span>Pantauan</span>
-          <button id="watchlistBtn" class="primary-btn" type="button">Tambah ke pantauan</button>
-        </div>
-      </div>
-
-      <button id="analyzeBtn" class="primary-btn full-width" type="button">
-        Analisis sekarang
-      </button>
-    </section>
-
-    <section class="summary-block">
-      <div class="section-head section-head-tight">
-        <div>
-          <h2>Ringkasan</h2>
-          <p>Angka utama untuk periode yang dipilih.</p>
-        </div>
-      </div>
-
-      <div class="cards-grid">
-        <article class="panel stat-card stat-card-primary">
-          <span class="stat-label">Kurs terbaru</span>
-          <strong id="latestRate">-</strong>
-        </article>
-
-        <article class="panel stat-card">
-          <span class="stat-label">Perubahan periode</span>
-          <strong id="pastCompare">-</strong>
-        </article>
-
-        <article class="panel stat-card">
-          <span class="stat-label">Proyeksi sederhana</span>
-          <strong id="forecastValue">-</strong>
-        </article>
-
-        <article class="panel stat-card">
-          <span class="stat-label">Hasil konversi</span>
-          <strong id="conversionResult">-</strong>
-        </article>
-      </div>
-    </section>
-
-    <section class="panel chart-panel">
-      <div class="section-head">
-        <div>
-          <h2>Tren kurs</h2>
-          <p id="chartMeta">Pergerakan historis untuk mata uang terpilih.</p>
-        </div>
-      </div>
-
-      <div class="chart-wrap">
-        <canvas id="rateChart"></canvas>
-      </div>
-    </section>
-
-    <section class="panel verdict-panel">
-      <div class="section-head">
-        <div>
-          <h2>Ringkasan cepat</h2>
-          <p>Gabungan tren harga dan konteks berita.</p>
-        </div>
-
-        <span id="biasBadge" class="badge neutral">Netral</span>
-      </div>
-
-      <p id="verdictText">
-        Belum ada analisis.
-      </p>
-    </section>
-
-    <section class="detail-grid">
-      <section class="panel watchlist-panel">
+    <section class="dashboard-shell">
+      <section class="panel controls-panel">
         <div class="section-head">
           <div>
-            <h2>Daftar pantauan</h2>
-            <p>Tersimpan di browser ini.</p>
+            <h2>Kontrol</h2>
+            <p>Atur mata uang, periode, dan mode konversi.</p>
           </div>
-
-          <button id="clearWatchlist" class="ghost-btn" type="button">Kosongkan</button>
         </div>
 
-        <div id="watchlistItems" class="watchlist-items"></div>
+        <div class="control-grid">
+          <label class="field">
+            <span>Mata uang</span>
+            <select id="currencySelect">
+              <option value="AUD">AUD</option>
+              <option value="SGD">SGD</option>
+              <option value="JPY">JPY</option>
+              <option value="USD">USD</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Periode</span>
+            <select id="rangeSelect">
+              <option value="7">7 hari</option>
+              <option value="14">14 hari</option>
+              <option value="30" selected>30 hari</option>
+            </select>
+          </label>
+
+          <label class="field field-span-2">
+            <span>Mode konversi</span>
+            <div class="switch-row">
+              <button class="switch-btn active" type="button" data-mode="IDR_TO_FX">
+                IDR → Valas
+              </button>
+              <button class="switch-btn" type="button" data-mode="FX_TO_IDR">
+                Valas → IDR
+              </button>
+            </div>
+          </label>
+
+          <label class="field">
+            <span>Nominal</span>
+            <input id="amountInput" type="number" min="0" value="1000000" />
+          </label>
+
+          <div class="field action-field">
+            <span>Pantauan</span>
+            <button id="watchlistBtn" class="ghost-btn action-soft" type="button">
+              Tambah ke pantauan
+            </button>
+          </div>
+        </div>
+
+        <button id="analyzeBtn" class="primary-btn full-width" type="button">
+          Analisis sekarang
+        </button>
       </section>
 
-      <section class="panel news-panel">
-        <div class="section-head">
+      <section class="summary-block">
+        <div class="section-head section-head-tight">
           <div>
-            <h2>Berita terkait</h2>
-            <p>Minimal 10 item saat integrasi live aktif.</p>
+            <h2>Ringkasan</h2>
+            <p>Data utama untuk periode yang dipilih.</p>
           </div>
         </div>
 
-        <div id="newsList" class="news-list"></div>
+        <div class="cards-grid">
+          <article class="panel stat-card stat-card-primary">
+            <span class="stat-label">Kurs terbaru</span>
+            <strong id="latestRate">-</strong>
+          </article>
+
+          <article class="panel stat-card">
+            <span class="stat-label">Perubahan periode</span>
+            <strong id="pastCompare">-</strong>
+          </article>
+
+          <article class="panel stat-card">
+            <span class="stat-label">Proyeksi sederhana</span>
+            <strong id="forecastValue">-</strong>
+          </article>
+
+          <article class="panel stat-card">
+            <span class="stat-label">Hasil konversi</span>
+            <strong id="conversionResult">-</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="section-head">
+          <div>
+            <h2>Tren kurs</h2>
+            <p id="chartMeta">Pergerakan historis untuk mata uang terpilih.</p>
+          </div>
+        </div>
+
+        <div id="chartState" class="ui-state hidden"></div>
+
+        <div class="chart-wrap">
+          <canvas id="rateChart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel verdict-panel">
+        <div class="section-head">
+          <div>
+            <h2>Ringkasan cepat</h2>
+            <p>Gabungan tren harga dan konteks berita.</p>
+          </div>
+
+          <span id="biasBadge" class="badge neutral">Netral</span>
+        </div>
+
+        <p id="verdictText">Belum ada analisis.</p>
+      </section>
+
+      <section class="detail-grid">
+        <section class="panel watchlist-panel">
+          <div class="section-head">
+            <div>
+              <h2>Daftar pantauan</h2>
+              <p>Tersimpan di browser ini.</p>
+            </div>
+
+            <button id="clearWatchlist" class="ghost-btn action-link" type="button">
+              Kosongkan
+            </button>
+          </div>
+
+          <div id="watchlistItems" class="watchlist-items"></div>
+        </section>
+
+        <section class="panel news-panel">
+          <div class="section-head">
+            <div>
+              <h2>Berita terkait</h2>
+              <p>Minimal 10 item saat integrasi live aktif.</p>
+            </div>
+          </div>
+
+          <div id="newsState" class="ui-state hidden"></div>
+          <div id="newsList" class="news-list"></div>
+        </section>
       </section>
     </section>
   </main>
