@@ -123,7 +123,7 @@ a {
 }
 
 .topbar-copy {
-  max-width: 680px;
+  max-width: 720px;
 }
 
 .topbar-actions {
@@ -199,10 +199,6 @@ h2 {
   line-height: 1.45;
 }
 
-.controls-panel {
-  background: var(--surface);
-}
-
 .control-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -255,7 +251,9 @@ input:focus,
 .primary-btn:focus,
 .ghost-btn:focus,
 .switch-btn:focus,
-.action-link:focus {
+.action-link:focus,
+.market-card:focus,
+.market-card-add:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -354,7 +352,6 @@ html[data-theme="dark"] .primary-btn {
 }
 
 .stat-card-primary {
-  background: var(--surface);
   border-color: var(--line-strong);
 }
 
@@ -369,6 +366,173 @@ html[data-theme="dark"] .primary-btn {
   font-size: clamp(20px, 5vw, 30px);
   line-height: 1.1;
   letter-spacing: -0.04em;
+}
+
+.markets-panel {
+  background: var(--surface);
+}
+
+.markets-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.market-card {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  text-align: left;
+  transition: 180ms ease;
+}
+
+.market-card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.market-card:active {
+  transform: translateY(0);
+}
+
+.market-card.active {
+  background: var(--primary-soft);
+  border-color: transparent;
+}
+
+.market-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.market-card-pair {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.market-card-subrate {
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.market-card-add {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  min-width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.market-card-add:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.market-card-main {
+  display: grid;
+  gap: 8px;
+}
+
+.market-card-rate {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.market-card-change-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.market-card-delta {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.market-card-delta.up {
+  color: var(--success);
+}
+
+.market-card-delta.down {
+  color: var(--danger);
+}
+
+.market-card-delta.flat {
+  color: var(--text-soft);
+}
+
+.market-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.market-card-badge.up {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.market-card-badge.down {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.market-card-badge.flat {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.market-sparkline {
+  position: relative;
+  width: 100%;
+  height: 52px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.market-sparkline canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.market-empty {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  color: var(--text-soft);
+  background: var(--surface-soft);
+  font-size: 13px;
 }
 
 .chart-panel {
@@ -435,11 +599,6 @@ html[data-theme="dark"] .primary-btn {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
-}
-
-.watchlist-panel,
-.news-panel {
-  background: var(--surface);
 }
 
 .watchlist-items,
@@ -532,6 +691,10 @@ html[data-theme="dark"] .primary-btn {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .markets-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .chart-wrap {
     min-height: 280px;
   }
@@ -562,6 +725,10 @@ html[data-theme="dark"] .primary-btn {
 
   .cards-grid {
     grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  }
+
+  .markets-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .chart-wrap {
