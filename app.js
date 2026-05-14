@@ -1,6 +1,7 @@
 const state = {
   mode: "IDR_TO_FX",
   chart: null,
+  latestRateValue: null,
   watchlist: JSON.parse(localStorage.getItem("currency-watchlist") || "[]"),
   theme: localStorage.getItem("currency-theme") || "light",
 };
@@ -44,10 +45,16 @@ themeToggle.addEventListener("click", () => {
 });
 
 watchlistBtn.addEventListener("click", () => {
-  const pair = `IDR/${currencySelect.value}`;
+  const currency = currencySelect.value;
+  const item = {
+    currency,
+    savedAt: new Date().toISOString(),
+  };
 
-  if (!state.watchlist.includes(pair)) {
-    state.watchlist.push(pair);
+  const exists = state.watchlist.some((entry) => entry.currency === currency);
+
+  if (!exists) {
+    state.watchlist.push(item);
     localStorage.setItem("currency-watchlist", JSON.stringify(state.watchlist));
     renderWatchlist();
   }
@@ -61,13 +68,14 @@ clearWatchlistBtn.addEventListener("click", () => {
 
 analyzeBtn.addEventListener("click", runAnalysis);
 amountInput.addEventListener("input", updateConversionOnly);
+currencySelect.addEventListener("change", updateConversionOnly);
 
 function renderWatchlist() {
   if (!state.watchlist.length) {
     watchlistItemsEl.innerHTML = `
       <div class="watch-item">
-        <strong>No watchlist yet</strong>
-        <p>Add a currency pair to keep it here in this browser.</p>
+        <strong>Belum ada pantauan</strong>
+        <p>Tambahkan mata uang agar muncul di daftar ini.</p>
       </div>
     `;
     return;
@@ -77,8 +85,8 @@ function renderWatchlist() {
     .map((item) => {
       return `
         <div class="watch-item">
-          <strong>${item}</strong>
-          <p>Saved locally in this browser.</p>
+          <strong>${item.currency}</strong>
+          <p>Disimpan di browser ini.</p>
         </div>
       `;
     })
@@ -91,6 +99,20 @@ function buildDate(daysAgo) {
   return date.toISOString().split("T")[0];
 }
 
+function formatNumber(num, digits = 2) {
+  return Number(num).toLocaleString("id-ID", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function formatCompactNumber(num, digits = 0) {
+  return Number(num).toLocaleString("id-ID", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 function simpleForecast(values) {
   if (!values.length) return 0;
   if (values.length === 1) return values[0];
@@ -99,29 +121,46 @@ function simpleForecast(values) {
   if (recent.length < 2) return recent[recent.length - 1];
 
   const deltas = recent.slice(1).map((value, index) => value - recent[index]);
-  const averageDelta = deltas.reduce((sum, value) => sum + value, 0) / deltas.length;
+  const averageDelta =
+    deltas.reduce((sum, value) => sum + value, 0) / deltas.length;
 
   return recent[recent.length - 1] + averageDelta * 7;
 }
 
 function buildVerdict(currency, latest, first, forecast, headlineCount) {
   const change = latest - first;
-  const direction =
-    change > 0 ? "strengthening" : change < 0 ? "softening" : "stable";
+  const percentChange = ((latest - first) / first) * 100;
 
-  const outlook =
-    forecast > latest
-      ? "with upward short-term pressure"
-      : forecast < latest
-      ? "with softer short-term bias"
-      : "with a flat short-term outlook";
+  let arah = "relatif stabil";
+  let bias = "neutral";
 
-  const bias =
-    change > 0 ? "bullish" : change < 0 ? "bearish" : "neutral";
+  if (change > 0) {
+    arah = "menguat";
+    bias = "bullish";
+  } else if (change < 0) {
+    arah = "melemah";
+    bias = "bearish";
+  }
+
+  let outlook = "dengan arah jangka pendek yang cenderung datar";
+  if (forecast > latest) {
+    outlook = "dengan tekanan naik jangka pendek";
+  } else if (forecast < latest) {
+    outlook = "dengan tekanan turun jangka pendek";
+  }
 
   return {
     bias,
-    text: `${currency} is ${direction} against IDR over the selected period, ${outlook}, while the current headline set (${headlineCount} items) should be treated as context rather than certainty.`,
+    label:
+      bias === "bullish"
+        ? "Menguat"
+        : bias === "bearish"
+        ? "Melemah"
+        : "Netral",
+    text: `${currency} ${arah} terhadap IDR pada periode terpilih (${formatNumber(
+      percentChange,
+      2
+    )}%), ${outlook}. Konteks berita saat ini berjumlah ${headlineCount} item dan sebaiknya dibaca sebagai pendamping, bukan kepastian arah pasar.`,
   };
 }
 
@@ -133,7 +172,7 @@ async function fetchRates(currency, days) {
   const response = await fetch(url, { cache: "no-store" });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch rates");
+    throw new Error("Gagal mengambil data kurs");
   }
 
   return response.json();
@@ -141,8 +180,8 @@ async function fetchRates(currency, days) {
 
 async function fetchNewsPlaceholders(currency) {
   return Array.from({ length: 10 }, (_, index) => ({
-    title: `${currency} headline placeholder ${index + 1}`,
-    description: "This will be replaced later by live headline data.",
+    title: `Placeholder berita ${currency} ${index + 1}`,
+    description: "Bagian ini akan diganti saat integrasi berita live diaktifkan.",
     url: "#",
   }));
 }
@@ -151,8 +190,8 @@ function renderNews(items) {
   if (!items.length) {
     newsListEl.innerHTML = `
       <article class="news-item">
-        <strong>No headlines available</strong>
-        <p>Try again later.</p>
+        <strong>Tidak ada berita</strong>
+        <p>Coba lagi beberapa saat lagi.</p>
       </article>
     `;
     return;
@@ -160,26 +199,42 @@ function renderNews(items) {
 
   newsListEl.innerHTML = items
     .map((item) => {
+      const isPlaceholder = item.url === "#";
+      const titleTag = isPlaceholder
+        ? `<strong>${item.title}</strong>`
+        : `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.title}</a>`;
+
       return `
         <article class="news-item">
-          <a href="${item.url}" target="_blank" rel="noopener noreferrer">
-            ${item.title}
-          </a>
-          <p>${item.description || "No description available."}</p>
+          ${titleTag}
+          <p>${item.description || "Tidak ada deskripsi."}</p>
         </article>
       `;
     })
     .join("");
 }
 
+function getChartColors() {
+  const styles = getComputedStyle(document.documentElement);
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+
+  return {
+    line: styles.getPropertyValue("--primary").trim() || "#5b8cff",
+    fill: isLight ? "rgba(53, 89, 224, 0.10)" : "rgba(124, 156, 255, 0.16)",
+    grid: isLight ? "rgba(21, 32, 56, 0.08)" : "rgba(255, 255, 255, 0.08)",
+    tick: styles.getPropertyValue("--text-faint").trim() || "#7d8796",
+  };
+}
+
 function renderChart(labels, values, currency) {
-  const ctx = document.getElementById("rateChart");
+  const canvas = document.getElementById("rateChart");
+  const colors = getChartColors();
 
   if (state.chart) {
     state.chart.destroy();
   }
 
-  state.chart = new Chart(ctx, {
+  state.chart = new Chart(canvas, {
     type: "line",
     data: {
       labels,
@@ -187,12 +242,13 @@ function renderChart(labels, values, currency) {
         {
           label: `${currency}/IDR`,
           data: values,
-          borderColor: "#5b8cff",
-          backgroundColor: "rgba(91, 140, 255, 0.16)",
+          borderColor: colors.line,
+          backgroundColor: colors.fill,
           fill: true,
-          tension: 0.35,
+          tension: 0.34,
           pointRadius: 0,
           pointHoverRadius: 4,
+          borderWidth: 2,
         },
       ],
     },
@@ -203,23 +259,36 @@ function renderChart(labels, values, currency) {
         legend: {
           display: false,
         },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            label: (context) =>
+              ` ${formatCompactNumber(context.parsed.y, 2)} IDR`,
+          },
+        },
+      },
+      interaction: {
+        mode: "index",
+        intersect: false,
       },
       scales: {
         x: {
           ticks: {
-            color: "#7b8798",
+            color: colors.tick,
             maxTicksLimit: 6,
           },
           grid: {
-            color: "rgba(120, 130, 150, 0.12)",
+            color: colors.grid,
           },
         },
         y: {
           ticks: {
-            color: "#7b8798",
+            color: colors.tick,
+            callback: (value) => formatCompactNumber(value, 0),
           },
           grid: {
-            color: "rgba(120, 130, 150, 0.12)",
+            color: colors.grid,
           },
         },
       },
@@ -228,30 +297,39 @@ function renderChart(labels, values, currency) {
 }
 
 function updateConversionOnly() {
-  const latestText = latestRateEl.dataset.latestRate;
   const amount = Number(amountInput.value || 0);
   const currency = currencySelect.value;
+  const latest = state.latestRateValue;
 
-  if (!latestText) {
+  if (!latest) {
     conversionResultEl.textContent = "-";
     return;
   }
 
-  const latest = Number(latestText);
-
   if (state.mode === "IDR_TO_FX") {
-    conversionResultEl.textContent = `${(amount / latest).toFixed(2)} ${currency}`;
+    conversionResultEl.textContent = `${formatNumber(amount / latest, 2)} ${currency}`;
   } else {
-    conversionResultEl.textContent = `${(amount * latest).toLocaleString("id-ID")} IDR`;
+    conversionResultEl.textContent = `${formatCompactNumber(amount * latest, 0)} IDR`;
   }
+}
+
+function setLoadingState() {
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = "Memuat...";
+  chartMetaEl.textContent = "Mengambil data historis...";
+  verdictTextEl.textContent = "Sedang menyiapkan analisis.";
+}
+
+function resetButtonState() {
+  analyzeBtn.disabled = false;
+  analyzeBtn.textContent = "Analisis sekarang";
 }
 
 async function runAnalysis() {
   const currency = currencySelect.value;
   const days = Number(rangeSelect.value);
 
-  analyzeBtn.disabled = true;
-  analyzeBtn.textContent = "Analyzing...";
+  setLoadingState();
 
   try {
     const [rateData, headlines] = await Promise.all([
@@ -263,7 +341,7 @@ async function runAnalysis() {
     const values = labels.map((date) => rateData.rates[date].IDR);
 
     if (!values.length) {
-      throw new Error("No historical values found");
+      throw new Error("Data historis kosong");
     }
 
     const latest = values[values.length - 1];
@@ -271,39 +349,46 @@ async function runAnalysis() {
     const forecast = simpleForecast(values);
     const deltaPct = ((latest - first) / first) * 100;
 
-    latestRateEl.dataset.latestRate = String(latest);
-    latestRateEl.textContent = `1 ${currency} = ${latest.toLocaleString("id-ID")} IDR`;
-    pastCompareEl.textContent = `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(2)}% vs start`;
-    forecastValueEl.textContent = `~${forecast.toLocaleString("id-ID")} IDR`;
+    state.latestRateValue = latest;
+
+    latestRateEl.textContent = `1 ${currency} = ${formatCompactNumber(latest, 2)} IDR`;
+    pastCompareEl.textContent = `${deltaPct >= 0 ? "+" : ""}${formatNumber(deltaPct, 2)}%`;
+    forecastValueEl.textContent = `~${formatCompactNumber(forecast, 2)} IDR`;
 
     updateConversionOnly();
     renderChart(labels, values, currency);
     renderNews(headlines);
 
-    chartMetaEl.textContent = `${days}-day historical range · source: Frankfurter`;
+    chartMetaEl.textContent = `Periode ${days} hari · sumber data: Frankfurter`;
 
     const verdict = buildVerdict(currency, latest, first, forecast, headlines.length);
     verdictTextEl.textContent = verdict.text;
-    biasBadgeEl.textContent =
-      verdict.bias.charAt(0).toUpperCase() + verdict.bias.slice(1);
+    biasBadgeEl.textContent = verdict.label;
     biasBadgeEl.className = `badge ${verdict.bias}`;
   } catch (error) {
+    state.latestRateValue = null;
     latestRateEl.textContent = "-";
     pastCompareEl.textContent = "-";
     forecastValueEl.textContent = "-";
     conversionResultEl.textContent = "-";
-    verdictTextEl.textContent = "Analysis failed. Please try again.";
-    biasBadgeEl.textContent = "Neutral";
+    chartMetaEl.textContent = "Gagal memuat data historis.";
+    verdictTextEl.textContent =
+      "Analisis gagal dimuat. Coba lagi dalam beberapa saat.";
+    biasBadgeEl.textContent = "Netral";
     biasBadgeEl.className = "badge neutral";
     newsListEl.innerHTML = `
       <article class="news-item">
-        <strong>Error</strong>
-        <p>Unable to load data right now.</p>
+        <strong>Gagal memuat berita</strong>
+        <p>Data belum tersedia untuk saat ini.</p>
       </article>
     `;
+
+    if (state.chart) {
+      state.chart.destroy();
+      state.chart = null;
+    }
   } finally {
-    analyzeBtn.disabled = false;
-    analyzeBtn.textContent = "Analyze now";
+    resetButtonState();
   }
 }
 
