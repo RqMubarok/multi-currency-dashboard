@@ -6,7 +6,7 @@ const state = {
   theme: readStorage("currency-theme", "light"),
 };
 
-const MARKET_CURRENCIES = ["USD", "JPY", "SGD", "AUD", "GBP"];
+const MARKET_CURRENCIES = ["USD", "SGD", "AUD", "JPY", "EUR", "GBP"];
 const sparklineCharts = new Map();
 
 const currencySelect = document.getElementById("currencySelect");
@@ -142,6 +142,18 @@ function formatCompactNumber(value, digits = 0) {
   });
 }
 
+function formatNewsDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function buildDate(daysAgo) {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
@@ -188,20 +200,53 @@ async function fetchRates(currency, days) {
   return data;
 }
 
-async function fetchNewsPlaceholders(currency) {
-  return Array.from({ length: 10 }, (_, index) => ({
-    title: `Placeholder berita ${currency} ${index + 1}`,
-    description: "Bagian ini akan diganti saat integrasi berita live diaktifkan.",
-    url: "#",
-  }));
+async function fetchLiveNews(currency) {
+  const queryMap = {
+    USD: "USD IDR rupiah",
+    SGD: "SGD IDR rupiah",
+    AUD: "AUD IDR rupiah",
+    JPY: "JPY IDR rupiah",
+    EUR: "EUR IDR rupiah",
+    GBP: "GBP IDR rupiah",
+    CNY: "CNY IDR rupiah",
+    MYR: "MYR IDR rupiah",
+    HKD: "HKD IDR rupiah",
+    SAR: "SAR IDR rupiah",
+  };
+
+  const query = encodeURIComponent(queryMap[currency] || `${currency} IDR rupiah`);
+  const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=id&gl=ID&ceid=ID:id`;
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+
+  try {
+    const response = await fetch(apiUrl, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Gagal mengambil feed berita.");
+    }
+
+    const data = await response.json();
+
+    if (!data.items || !Array.isArray(data.items)) {
+      return [];
+    }
+
+    return data.items.slice(0, 6).map((item) => ({
+      title: item.title || "Tanpa judul",
+      description: item.author || item.source || "Google News",
+      url: item.link || "#",
+      pubDate: item.pubDate || "",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 function renderNews(items) {
   if (!items.length) {
     newsListEl.innerHTML = `
       <article class="news-item">
-        <strong>Tidak ada berita</strong>
-        <p>Coba lagi beberapa saat lagi.</p>
+        <strong>Belum ada berita yang cocok</strong>
+        <p>Coba ganti pair atau perbarui data beberapa saat lagi.</p>
       </article>
     `;
     return;
@@ -209,15 +254,16 @@ function renderNews(items) {
 
   newsListEl.innerHTML = items
     .map((item) => {
-      const titleMarkup =
-        item.url && item.url !== "#"
-          ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>`
-          : `<strong>${escapeHtml(item.title)}</strong>`;
+      const meta = [item.description, formatNewsDate(item.pubDate)]
+        .filter(Boolean)
+        .join(" · ");
 
       return `
         <article class="news-item">
-          ${titleMarkup}
-          <p>${escapeHtml(item.description || "Tidak ada deskripsi.")}</p>
+          <a href="${item.url}" target="_blank" rel="noopener noreferrer">
+            ${escapeHtml(item.title)}
+          </a>
+          <p>${escapeHtml(meta || "Google News")}</p>
         </article>
       `;
     })
@@ -249,8 +295,8 @@ function renderWatchlist() {
   if (!state.watchlist.length) {
     watchlistItemsEl.innerHTML = `
       <article class="watch-item">
-        <strong>Belum ada pantauan</strong>
-        <p>Tambahkan mata uang agar muncul di daftar ini.</p>
+        <strong>Belum ada pair di pantauan</strong>
+        <p>Tambahkan pair dari kontrol utama untuk memantau lebih cepat.</p>
       </article>
     `;
     return;
@@ -318,7 +364,7 @@ function buildVerdict(currency, latest, first, forecast, headlineCount) {
     text: `${currency} ${directionWord} terhadap IDR pada periode terpilih (${formatNumber(
       percentChange,
       2
-    )}%), ${forecastText}. Konteks berita saat ini berjumlah ${headlineCount} item dan sebaiknya dibaca sebagai pendamping, bukan kepastian arah pasar.`,
+    )}%), ${forecastText}. Headline terkait saat ini berjumlah ${headlineCount} item dan sebaiknya dibaca sebagai pendamping sentimen, bukan kepastian arah pasar.`,
   };
 }
 
@@ -515,11 +561,6 @@ function renderMarketSnapshots(items) {
       const isActive = item.currency === currencySelect.value;
       const trend = getTrendMeta(item.deltaPct);
       const absolutePrefix = item.absoluteChange >= 0 ? "+" : "-";
-      const absoluteValue = `${absolutePrefix}${formatNumber(
-        Math.abs(item.absoluteChange),
-        4
-      )}`;
-
       const deltaClass =
         item.absoluteChange > 0
           ? "up"
@@ -537,17 +578,17 @@ function renderMarketSnapshots(items) {
           <div class="market-card-head">
             <div>
               <span class="market-card-pair">${item.currency} / IDR</span>
-              <div class="market-card-subrate">${formatNumber(item.latest, 4)}</div>
+              <div class="market-card-subrate">Pair populer</div>
             </div>
-
-            <span class="market-card-add" aria-hidden="true">+</span>
           </div>
 
           <div class="market-card-main">
-            <strong class="market-card-rate">${formatNumber(item.latest, 4)}</strong>
+            <strong class="market-card-rate">${formatNumber(item.latest, 2)}</strong>
 
             <div class="market-card-change-wrap">
-              <span class="market-card-delta ${deltaClass}">${absoluteValue}</span>
+              <span class="market-card-delta ${deltaClass}">
+                ${absolutePrefix}${formatNumber(Math.abs(item.absoluteChange), 2)}
+              </span>
 
               <span class="market-card-badge ${trend.badgeClass}">
                 <span>${trend.icon}</span>
@@ -584,8 +625,8 @@ function renderMarketSnapshots(items) {
             borderColor: lineColor,
             backgroundColor: fillColor,
             fill: true,
-            borderWidth: 1.8,
-            tension: 0.35,
+            borderWidth: 1.4,
+            tension: 0.32,
             pointRadius: 0,
             pointHoverRadius: 0,
           },
@@ -619,9 +660,9 @@ function renderMarketSnapshots(items) {
 
 function setLoadingState() {
   analyzeBtn.disabled = true;
-  analyzeBtn.textContent = "Memuat...";
-  chartMetaEl.textContent = "Mengambil data historis...";
-  verdictTextEl.textContent = "Sedang menyiapkan analisis.";
+  analyzeBtn.textContent = "Memperbarui...";
+  chartMetaEl.textContent = "Mengambil data historis terbaru...";
+  verdictTextEl.textContent = "Sedang menyusun ringkasan pair aktif.";
   latestRateEl.textContent = "-";
   pastCompareEl.textContent = "-";
   forecastValueEl.textContent = "-";
@@ -630,17 +671,42 @@ function setLoadingState() {
   biasBadgeEl.textContent = "Netral";
   biasBadgeEl.className = "badge neutral";
 
-  setUIState(chartStateEl, "loading", "Memuat data grafik...");
-  setUIState(newsStateEl, "loading", "Memuat daftar berita...");
+  setUIState(chartStateEl, "loading", "Grafik sedang dimuat...");
+  setUIState(newsStateEl, "loading", "Berita terbaru sedang dimuat...");
 
   if (marketsGridEl) {
-    marketsGridEl.innerHTML = `<div class="market-empty">Memuat pair lain...</div>`;
+    marketsGridEl.innerHTML = `
+      <article class="market-card-skeleton">
+        <span class="skeleton-bar sm"></span>
+        <span class="skeleton-bar md"></span>
+        <span class="skeleton-bar lg"></span>
+        <div class="skeleton-chart"></div>
+      </article>
+      <article class="market-card-skeleton">
+        <span class="skeleton-bar sm"></span>
+        <span class="skeleton-bar md"></span>
+        <span class="skeleton-bar lg"></span>
+        <div class="skeleton-chart"></div>
+      </article>
+      <article class="market-card-skeleton">
+        <span class="skeleton-bar sm"></span>
+        <span class="skeleton-bar md"></span>
+        <span class="skeleton-bar lg"></span>
+        <div class="skeleton-chart"></div>
+      </article>
+      <article class="market-card-skeleton">
+        <span class="skeleton-bar sm"></span>
+        <span class="skeleton-bar md"></span>
+        <span class="skeleton-bar lg"></span>
+        <div class="skeleton-chart"></div>
+      </article>
+    `;
   }
 }
 
 function resetButtonState() {
   analyzeBtn.disabled = false;
-  analyzeBtn.textContent = "Analisis sekarang";
+  analyzeBtn.textContent = "Perbarui analisis";
 }
 
 async function runAnalysis() {
@@ -652,7 +718,7 @@ async function runAnalysis() {
   try {
     const [rateData, headlines, marketItems] = await Promise.all([
       fetchRates(currency, days),
-      fetchNewsPlaceholders(currency),
+      fetchLiveNews(currency),
       fetchMarketSnapshots(14),
     ]);
 
@@ -703,8 +769,8 @@ async function runAnalysis() {
 
     newsListEl.innerHTML = `
       <article class="news-item">
-        <strong>Gagal memuat berita</strong>
-        <p>Data belum tersedia untuk saat ini.</p>
+        <strong>Berita belum bisa dimuat</strong>
+        <p>Sumber berita sedang tidak tersedia atau koneksi sedang bermasalah.</p>
       </article>
     `;
 
