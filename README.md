@@ -1,34 +1,72 @@
-# Multi Currency Dashboard V1
+# Multi Currency Dashboard
 
-A lightweight multi-currency dashboard built for monitoring IDR against AUD, SGD, JPY, and USD using a fully free-first stack.[1][2]
+Dashboard kurs sederhana untuk memantau nilai tukar IDR terhadap beberapa mata uang utama, melihat perubahan historis, menghitung konversi nominal, dan membaca konteks berita terkait.
 
-## Overview
+## Demo
 
-This project is designed as a static frontend app that can be deployed easily on Vercel without a database in V1.[3][4] It uses Frankfurter for exchange-rate data, Chart.js for visualization, and browser localStorage for watchlist persistence in the same browser.[5][6][7]
+- Live site: [multi-currency-dashboard.vercel.app](https://multi-currency-dashboard.vercel.app/)
 
-## V1 features
+## Tentang proyek
 
-- Multi-currency support: AUD, SGD, JPY, USD.[5]
-- Conversion mode switch: IDR to FX and FX to IDR.[5]
-- Historical range options: 7 days, 14 days, and 30 days.[5]
-- Line chart rendering with Chart.js CDN.[6][8]
-- Watchlist stored locally in the browser using localStorage.[7][9]
-- Placeholder headline section prepared for 10 relevant news items.[10]
-- One-sentence verdict based on recent trend and headline count logic.[5]
+Project ini dibuat sebagai dashboard kurs ringan untuk kebutuhan pemantauan harian. Fokus utamanya adalah membantu pengguna melihat kurs aktif, perubahan dalam periode tertentu, hasil konversi nominal, dan ringkasan konteks yang lebih mudah dibaca dalam satu tampilan.
 
-## Stack
+## Fitur utama
 
-| Layer | Tool |
-|------|------|
-| Frontend | HTML, CSS, JavaScript [11] |
-| Charting | Chart.js CDN [6][12] |
-| FX Data | Frankfurter API [1][5] |
-| Hosting | Vercel Hobby [2][4] |
-| Local persistence | Browser localStorage [7][9] |
+- Pantau kurs IDR terhadap AUD, USD, SGD, JPY, EUR, dan GBP.
+- Pilih periode analisis 7, 14, atau 30 hari.
+- Hitung konversi nominal dengan format angka lokal Indonesia.
+- Lihat perubahan periode dan sinyal arah indikatif.
+- Buka “Kurs lainnya” lewat horizontal swipe yang nyaman di mobile.
+- Simpan pair favorit ke daftar pantauan.
+- Baca berita terkait untuk menambah konteks pergerakan kurs.
+- Gunakan light mode dan dark mode.
 
-## Project structure
+## Kenapa project ini dibuat
 
-```text
+Banyak currency dashboard terasa terlalu padat atau terlalu teknis untuk kebutuhan cek cepat. Project ini dirancang agar tetap ringkas, mudah dipakai di mobile, dan fokus pada keputusan sederhana sehari-hari, terutama untuk kebutuhan pemantauan kurs pribadi.
+
+## Tampilan utama
+
+Dashboard ini terdiri dari beberapa blok utama:
+
+- Atur mata uang & nominal.
+- Hasil utama.
+- Pergerakan kurs.
+- Insight singkat.
+- Kurs lainnya.
+- Kurs tersimpan.
+- Berita penggerak kurs.
+
+## Tech stack
+
+- HTML
+- CSS
+- JavaScript
+- [Chart.js](https://www.chartjs.org/)
+- [Frankfurter API](https://www.frankfurter.app/)
+- Google News RSS
+
+## Cara menjalankan project
+
+Karena ini project statis, kamu bisa menjalankannya dengan sangat sederhana.
+
+### Opsi 1 — buka langsung
+1. Clone repository ini.
+2. Buka file `index.html` di browser.
+
+### Opsi 2 — pakai local server
+Jika ingin development yang lebih rapi:
+
+```bash
+git clone https://github.com/RqMubarok/multi-currency-dashboard.git
+cd multi-currency-dashboard
+```
+
+Lalu jalankan local server favoritmu, misalnya dengan VS Code Live Server.
+
+## Struktur file
+
+```bash
 multi-currency-dashboard/
 ├── index.html
 ├── style.css
@@ -36,25 +74,31 @@ multi-currency-dashboard/
 └── README.md
 ```
 
-This structure is enough for a static deployment workflow on Vercel for plain HTML/CSS/JavaScript projects.[3][13]
+## Catatan
 
-## How to run locally
+- Data kurs menggunakan sumber eksternal, jadi hasil tergantung ketersediaan API.
+- Berita terkait diambil dari feed publik, sehingga hasil bisa berubah sewaktu-waktu.
+- Daftar pantauan dan tema disimpan di browser pengguna.
 
-1. Put all files in the same folder.[3]
-2. Open `index.html` in a browser for a quick preview, or serve the folder with a simple local server for safer API testing.[13]
-3. Use the controls to switch currency, range, and conversion direction.[5]
+## Pengembangan berikutnya
 
-## How to deploy to Vercel
+Beberapa ide pengembangan lanjutan:
 
-1. Create a new GitHub repository.
-2. Upload `index.html`, `style.css`, `app.js`, and `README.md`.
-3. Import the repository into Vercel as a new project.[14][15]
-4. Since this is a static frontend project, no complex framework setup is required for the first deployment.[3][4]
+- Tambah pilihan mata uang yang lebih banyak.
+- Tambah range 3 bulan, 6 bulan, dan 1 tahun.
+- Tambah alert kurs target.
+- Tambah perbandingan beberapa pair sekaligus.
+- Tambah insight yang lebih informatif tanpa terasa seperti prediksi pasar.
+- Tambah fallback data atau caching agar tetap usable saat API lambat.
 
-## Current limitations
+## Status project
 
-V1 does not use a database, so the watchlist only persists in the same browser and device.[7][9] The headline module is still a placeholder and can be connected later to a free news provider such as GNews in a later iteration.[10]
+Masih dalam tahap pengembangan dan iterasi UI/UX.
 
-## Planned next step
+## Author
 
-The next practical improvement is connecting a lightweight news source for up to 10 relevant headlines and then refining the verdict logic while keeping the stack free and lightweight.[10][2]
+Dibuat oleh [RqMubarok](https://github.com/RqMubarok)
+
+## License
+
+Project ini menggunakan lisensi MIT.
