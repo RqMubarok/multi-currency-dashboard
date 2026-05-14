@@ -21,7 +21,7 @@
       <p class="eyebrow">V1 · Stack gratis</p>
       <h1>Pantau kurs tanpa ribet</h1>
       <p class="subtext">
-        Dashboard ringkas untuk memantau pergerakan IDR terhadap AUD, SGD, JPY, dan USD.
+        Dashboard ringkas untuk memantau pergerakan IDR terhadap AUD, SGD, JPY, USD, dan pair populer lainnya.
       </p>
     </div>
 
@@ -43,7 +43,7 @@
         <div class="section-head">
           <div>
             <h2>Kontrol</h2>
-            <p>Atur mata uang, periode, dan mode konversi.</p>
+            <p>Atur pair, periode, dan mode konversi.</p>
           </div>
         </div>
 
@@ -52,9 +52,10 @@
             <span>Mata uang</span>
             <select id="currencySelect">
               <option value="AUD">AUD</option>
+              <option value="USD">USD</option>
               <option value="SGD">SGD</option>
               <option value="JPY">JPY</option>
-              <option value="USD">USD</option>
+              <option value="GBP">GBP</option>
             </select>
           </label>
 
@@ -101,7 +102,7 @@
         <div class="section-head section-head-tight">
           <div>
             <h2>Ringkasan</h2>
-            <p>Data utama untuk periode yang dipilih.</p>
+            <p>Data utama untuk pair aktif pada periode terpilih.</p>
           </div>
         </div>
 
@@ -128,11 +129,22 @@
         </div>
       </section>
 
+      <section class="panel markets-panel">
+        <div class="section-head">
+          <div>
+            <h2>Kurs lainnya</h2>
+            <p>Klik card kecil untuk membuka analisis pair tersebut.</p>
+          </div>
+        </div>
+
+        <div id="marketsGrid" class="markets-grid"></div>
+      </section>
+
       <section class="panel chart-panel">
         <div class="section-head">
           <div>
             <h2>Tren kurs</h2>
-            <p id="chartMeta">Pergerakan historis untuk mata uang terpilih.</p>
+            <p id="chartMeta">Pergerakan historis untuk pair terpilih.</p>
           </div>
         </div>
 
@@ -147,7 +159,7 @@
         <div class="section-head">
           <div>
             <h2>Ringkasan cepat</h2>
-            <p>Gabungan tren harga dan konteks berita.</p>
+            <p>Gabungan tren harga dan konteks data yang tersedia.</p>
           </div>
 
           <span id="biasBadge" class="badge neutral">Netral</span>
@@ -176,7 +188,7 @@
           <div class="section-head">
             <div>
               <h2>Berita terkait</h2>
-              <p>Minimal 10 item saat integrasi live aktif.</p>
+              <p>Area ini siap dihubungkan ke sumber berita live.</p>
             </div>
           </div>
 
