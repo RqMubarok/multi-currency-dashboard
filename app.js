@@ -6,6 +6,9 @@ const state = {
   theme: readStorage("currency-theme", "light"),
 };
 
+const MARKET_CURRENCIES = ["USD", "JPY", "SGD", "AUD", "GBP"];
+const sparklineCharts = new Map();
+
 const currencySelect = document.getElementById("currencySelect");
 const rangeSelect = document.getElementById("rangeSelect");
 const amountInput = document.getElementById("amountInput");
@@ -26,14 +29,15 @@ const chartStateEl = document.getElementById("chartState");
 const newsStateEl = document.getElementById("newsState");
 const newsListEl = document.getElementById("newsList");
 const watchlistItemsEl = document.getElementById("watchlistItems");
+const marketsGridEl = document.getElementById("marketsGrid");
 
 init();
 
-function init() {
+async function init() {
   applyTheme(state.theme);
   bindEvents();
   renderWatchlist();
-  runAnalysis();
+  await runAnalysis();
 }
 
 function bindEvents() {
@@ -54,7 +58,11 @@ function bindEvents() {
   clearWatchlistBtn.addEventListener("click", clearWatchlist);
 
   currencySelect.addEventListener("change", () => {
-    updateConversionOnly();
+    runAnalysis();
+  });
+
+  rangeSelect.addEventListener("change", () => {
+    runAnalysis();
   });
 
   amountInput.addEventListener("input", () => {
@@ -62,9 +70,10 @@ function bindEvents() {
   });
 
   themeToggle.addEventListener("click", () => {
-    const nextTheme = document.documentElement.getAttribute("data-theme") === "dark"
-      ? "light"
-      : "dark";
+    const nextTheme =
+      document.documentElement.getAttribute("data-theme") === "dark"
+        ? "light"
+        : "dark";
 
     state.theme = nextTheme;
     writeStorage("currency-theme", nextTheme);
@@ -72,6 +81,10 @@ function bindEvents() {
 
     if (state.chart) {
       updateChartTheme();
+    }
+
+    if (marketsGridEl?.children.length) {
+      runAnalysis();
     }
   });
 }
@@ -215,9 +228,7 @@ function addCurrentCurrencyToWatchlist() {
   const currency = currencySelect.value;
   const exists = state.watchlist.some((entry) => entry.currency === currency);
 
-  if (exists) {
-    return;
-  }
+  if (exists) return;
 
   state.watchlist.push({
     currency,
@@ -322,7 +333,6 @@ function getChartColors() {
         : "rgba(47, 91, 231, 0.10)",
     grid: styles.getPropertyValue("--line").trim() || "rgba(19, 23, 34, 0.08)",
     tick: styles.getPropertyValue("--text-faint").trim() || "#8b95a7",
-    border: styles.getPropertyValue("--line").trim() || "rgba(19, 23, 34, 0.08)",
   };
 }
 
@@ -428,6 +438,185 @@ function updateChartTheme() {
   state.chart.update("none");
 }
 
+function getTrendMeta(deltaPct) {
+  if (deltaPct > 0) {
+    return {
+      badgeClass: "up",
+      icon: "↗",
+      label: `+${formatNumber(deltaPct, 2)}%`,
+    };
+  }
+
+  if (deltaPct < 0) {
+    return {
+      badgeClass: "down",
+      icon: "↘",
+      label: `-${formatNumber(Math.abs(deltaPct), 2)}%`,
+    };
+  }
+
+  return {
+    badgeClass: "flat",
+    icon: "→",
+    label: "0,00%",
+  };
+}
+
+function destroySparklineCharts() {
+  sparklineCharts.forEach((chart) => chart.destroy());
+  sparklineCharts.clear();
+}
+
+async function fetchMarketSnapshots(days = 14) {
+  const items = await Promise.all(
+    MARKET_CURRENCIES.map(async (currency) => {
+      try {
+        const data = await fetchRates(currency, days);
+        const labels = Object.keys(data.rates);
+        const values = labels.map((date) => data.rates[date].IDR);
+
+        if (!values.length) return null;
+
+        const first = values[0];
+        const latest = values[values.length - 1];
+        const absoluteChange = latest - first;
+        const deltaPct = ((latest - first) / first) * 100;
+
+        return {
+          currency,
+          labels,
+          values,
+          latest,
+          absoluteChange,
+          deltaPct,
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return items.filter(Boolean);
+}
+
+function renderMarketSnapshots(items) {
+  if (!marketsGridEl) return;
+
+  if (!items.length) {
+    destroySparklineCharts();
+    marketsGridEl.innerHTML = `<div class="market-empty">Data pair lain belum tersedia.</div>`;
+    return;
+  }
+
+  destroySparklineCharts();
+
+  marketsGridEl.innerHTML = items
+    .map((item) => {
+      const isActive = item.currency === currencySelect.value;
+      const trend = getTrendMeta(item.deltaPct);
+      const absolutePrefix = item.absoluteChange >= 0 ? "+" : "-";
+      const absoluteValue = `${absolutePrefix}${formatNumber(
+        Math.abs(item.absoluteChange),
+        4
+      )}`;
+
+      const deltaClass =
+        item.absoluteChange > 0
+          ? "up"
+          : item.absoluteChange < 0
+          ? "down"
+          : "flat";
+
+      return `
+        <button
+          type="button"
+          class="market-card ${isActive ? "active" : ""}"
+          data-currency="${item.currency}"
+          aria-label="Buka analisis ${item.currency} terhadap IDR"
+        >
+          <div class="market-card-head">
+            <div>
+              <span class="market-card-pair">${item.currency} / IDR</span>
+              <div class="market-card-subrate">${formatNumber(item.latest, 4)}</div>
+            </div>
+
+            <span class="market-card-add" aria-hidden="true">+</span>
+          </div>
+
+          <div class="market-card-main">
+            <strong class="market-card-rate">${formatNumber(item.latest, 4)}</strong>
+
+            <div class="market-card-change-wrap">
+              <span class="market-card-delta ${deltaClass}">${absoluteValue}</span>
+
+              <span class="market-card-badge ${trend.badgeClass}">
+                <span>${trend.icon}</span>
+                <span>${trend.label}</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="market-sparkline">
+            <canvas id="sparkline-${item.currency}"></canvas>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+
+  items.forEach((item) => {
+    const canvas = document.getElementById(`sparkline-${item.currency}`);
+    if (!canvas) return;
+
+    const positive = item.deltaPct >= 0;
+    const lineColor = positive ? "#17803d" : "#b42318";
+    const fillColor = positive
+      ? "rgba(23, 128, 61, 0.10)"
+      : "rgba(180, 35, 24, 0.10)";
+
+    const chart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: item.labels,
+        datasets: [
+          {
+            data: item.values,
+            borderColor: lineColor,
+            backgroundColor: fillColor,
+            fill: true,
+            borderWidth: 1.8,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: { display: false },
+          y: { display: false },
+        },
+      },
+    });
+
+    sparklineCharts.set(item.currency, chart);
+  });
+
+  marketsGridEl.querySelectorAll(".market-card").forEach((button) => {
+    button.addEventListener("click", () => {
+      currencySelect.value = button.dataset.currency;
+      runAnalysis();
+    });
+  });
+}
+
 function setLoadingState() {
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = "Memuat...";
@@ -443,6 +632,10 @@ function setLoadingState() {
 
   setUIState(chartStateEl, "loading", "Memuat data grafik...");
   setUIState(newsStateEl, "loading", "Memuat daftar berita...");
+
+  if (marketsGridEl) {
+    marketsGridEl.innerHTML = `<div class="market-empty">Memuat pair lain...</div>`;
+  }
 }
 
 function resetButtonState() {
@@ -457,9 +650,10 @@ async function runAnalysis() {
   setLoadingState();
 
   try {
-    const [rateData, headlines] = await Promise.all([
+    const [rateData, headlines, marketItems] = await Promise.all([
       fetchRates(currency, days),
       fetchNewsPlaceholders(currency),
+      fetchMarketSnapshots(14),
     ]);
 
     const labels = Object.keys(rateData.rates);
@@ -482,6 +676,7 @@ async function runAnalysis() {
 
     updateConversionOnly();
     renderChart(labels, values, currency);
+    renderMarketSnapshots(marketItems);
     renderNews(headlines);
 
     chartMetaEl.textContent = `Periode ${days} hari · sumber data: Frankfurter`;
@@ -512,6 +707,11 @@ async function runAnalysis() {
         <p>Data belum tersedia untuk saat ini.</p>
       </article>
     `;
+
+    if (marketsGridEl) {
+      destroySparklineCharts();
+      marketsGridEl.innerHTML = `<div class="market-empty">Gagal memuat pair lain.</div>`;
+    }
 
     setUIState(chartStateEl, "error", error?.message || "Gagal memuat data grafik.");
     setUIState(newsStateEl, "error", "Gagal memuat daftar berita.");
