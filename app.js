@@ -5,10 +5,12 @@ const state = {
   latestDate: null,
   watchlist: [],
   theme: "light",
+  amountRaw: 1000000,
 };
 
 const MARKET_CURRENCIES = ["USD", "SGD", "AUD", "JPY", "EUR", "GBP"];
 const sparklineCharts = new Map();
+let latestMarketSnapshotItems = [];
 
 const CURRENCY_META = {
   USD: { icon: "🇺🇸", name: "US Dollar" },
@@ -55,10 +57,12 @@ init();
 async function init() {
   state.watchlist = readStorage("currency-watchlist", []);
   state.theme = readStorage("currency-theme", "light");
+  state.amountRaw = 1000000;
 
   applyTheme(state.theme);
   bindEvents();
   renderCurrencyOptions();
+  syncAmountInput();
   renderWatchlist();
   await runAnalysis();
 }
@@ -79,7 +83,9 @@ function bindEvents() {
 
   currencySelect.addEventListener("change", runAnalysis);
   rangeSelect.addEventListener("change", runAnalysis);
-  amountInput.addEventListener("input", updateConversionOnly);
+
+  amountInput.addEventListener("input", handleAmountInput);
+  amountInput.addEventListener("blur", syncAmountInput);
 
   themeToggle.addEventListener("click", () => {
     const nextTheme =
@@ -90,8 +96,8 @@ function bindEvents() {
     applyTheme(nextTheme);
     updateChartTheme();
 
-    if (marketsGridEl?.children.length) {
-      renderMarketSnapshotsFromExisting();
+    if (latestMarketSnapshotItems.length) {
+      renderMarketSnapshots(latestMarketSnapshotItems);
     }
   });
 }
@@ -201,6 +207,37 @@ function formatCompactNumber(value, digits = 0) {
   });
 }
 
+function formatInputNumber(value) {
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function parseLocaleNumber(value) {
+  if (!value) return 0;
+
+  const cleaned = String(value)
+    .replace(/[^\d.,]/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function handleAmountInput(event) {
+  const input = event.target;
+  const parsed = parseLocaleNumber(input.value);
+
+  state.amountRaw = parsed;
+  input.value = parsed ? formatInputNumber(parsed) : "";
+  updateConversionOnly();
+}
+
+function syncAmountInput() {
+  amountInput.value = state.amountRaw ? formatInputNumber(state.amountRaw) : "";
+}
+
 function formatSplitNumber(value, digits = 2) {
   const isNegative = Number(value) < 0;
   const abs = Math.abs(Number(value));
@@ -288,17 +325,17 @@ async function fetchRates(currency, days) {
   try {
     response = await fetch(url, { cache: "no-store" });
   } catch {
-    throw new Error("Koneksi gagal. Periksa internet lalu coba lagi.");
+    throw new Error("Koneksi bermasalah. Coba lagi saat internet sudah stabil.");
   }
 
   if (!response.ok) {
-    throw new Error("Server kurs sedang bermasalah.");
+    throw new Error("Data kurs sedang tidak bisa diambil.");
   }
 
   const data = await response.json();
 
   if (!data.rates || !Object.keys(data.rates).length) {
-    throw new Error("Data kurs tidak tersedia untuk periode ini.");
+    throw new Error("Belum ada data kurs untuk periode ini.");
   }
 
   return data;
@@ -342,11 +379,16 @@ async function fetchLiveNews(currency) {
 
 function renderNews(items) {
   if (!items.length) {
-    setUIState(newsStateEl, "success", "Tidak ada berita yang cocok untuk pair ini saat ini.");
+    setUIState(
+      newsStateEl,
+      "success",
+      "Belum ada berita yang relevan untuk pair ini saat ini."
+    );
+
     newsListEl.innerHTML = `
       <article class="news-item">
-        <strong>Belum ada berita relevan</strong>
-        <p>Coba ganti pair atau perbarui data beberapa saat lagi.</p>
+        <strong>Belum ada berita untuk pair ini</strong>
+        <p>Coba ganti mata uang atau perbarui data beberapa saat lagi.</p>
       </article>
     `;
     return;
@@ -383,7 +425,7 @@ function addCurrentCurrencyToWatchlist() {
   const exists = state.watchlist.some((entry) => entry.currency === currency);
 
   if (exists) {
-    setUIState(watchlistStateEl, "success", `${currency} sudah ada di daftar pantauan.`);
+    setUIState(watchlistStateEl, "success", `${currency} sudah ada di kurs tersimpan.`);
     return;
   }
 
@@ -394,23 +436,28 @@ function addCurrentCurrencyToWatchlist() {
 
   writeStorage("currency-watchlist", state.watchlist);
   renderWatchlist();
-  setUIState(watchlistStateEl, "success", `${currency} ditambahkan ke daftar pantauan.`);
+  setUIState(watchlistStateEl, "success", `${currency} berhasil disimpan.`);
 }
 
 function clearWatchlist() {
   state.watchlist = [];
   writeStorage("currency-watchlist", state.watchlist);
   renderWatchlist();
-  setUIState(watchlistStateEl, "success", "Daftar pantauan dikosongkan.");
+  setUIState(watchlistStateEl, "success", "Semua kurs tersimpan sudah dihapus.");
 }
 
 function renderWatchlist() {
   if (!state.watchlist.length) {
-    setUIState(watchlistStateEl, "success", "Belum ada pair yang disimpan.");
+    setUIState(
+      watchlistStateEl,
+      "success",
+      "Belum ada kurs yang disimpan. Tambahkan pair yang sering kamu cek."
+    );
+
     watchlistItemsEl.innerHTML = `
       <article class="watch-item">
-        <strong>Belum ada pair di pantauan</strong>
-        <p>Tambahkan pair dari kontrol utama untuk memantau lebih cepat.</p>
+        <strong>Belum ada kurs tersimpan</strong>
+        <p>Simpan pair dari bagian atas agar lebih cepat dibuka lagi nanti.</p>
       </article>
     `;
     return;
@@ -434,48 +481,59 @@ function renderWatchlist() {
 }
 
 function updateConversionOnly() {
-  const amount = Number(amountInput.value || 0);
+  const amount = state.amountRaw;
   const currency = currencySelect.value;
   const latest = state.latestRateValue;
 
-  if (!Number.isFinite(latest) || Number.isNaN(amount)) {
+  if (!Number.isFinite(latest) || !Number.isFinite(amount)) {
     updateMetric(conversionResultEl, renderPlainMetric("-"));
     return;
   }
 
   if (state.mode === "IDR_TO_FX") {
     const result = amount / latest;
-    updateMetric(conversionResultEl, renderSplitNumber(result, { digits: 2, suffix: currency }));
+    updateMetric(
+      conversionResultEl,
+      renderSplitNumber(result, { digits: 2, suffix: currency })
+    );
   } else {
     const result = amount * latest;
-    updateMetric(conversionResultEl, renderSplitNumber(result, { digits: 2, suffix: "IDR" }));
+    updateMetric(
+      conversionResultEl,
+      renderSplitNumber(result, { digits: 2, suffix: "IDR" })
+    );
   }
 }
 
 function buildVerdict(currency, latest, first, indicative, headlineCount) {
   const pct = ((latest - first) / first) * 100;
-  let directionWord = "relatif stabil";
 
-  if (pct > 0) directionWord = "menguat";
-  if (pct < 0) directionWord = "melemah";
+  const changeText =
+    pct > 0
+      ? `menguat ${formatNumber(Math.abs(pct), 2)}%`
+      : pct < 0
+      ? `melemah ${formatNumber(Math.abs(pct), 2)}%`
+      : "bergerak relatif datar";
 
-  return `${currency} ${directionWord} terhadap IDR pada periode terpilih (${formatNumber(
-    pct,
-    2
-  )}%). Arah indikatif saat ini ${indicative.label.toLowerCase()}, dan berita terkait tersedia sebanyak ${headlineCount} item untuk membantu membaca konteks, bukan memastikan arah pasar.`;
+  const newsText =
+    headlineCount > 0
+      ? `Ada ${headlineCount} berita yang bisa dipakai sebagai konteks tambahan.`
+      : "Belum ada berita relevan yang berhasil dimuat saat ini.";
+
+  return `${currency}/IDR ${changeText} dalam periode yang dipilih. Sinyal tren saat ini ${indicative.label.toLowerCase()}. ${newsText}`;
 }
 
 function getChartColors() {
   const styles = getComputedStyle(document.documentElement);
 
   return {
-    line: styles.getPropertyValue("--primary").trim() || "#2f5be7",
+    line: styles.getPropertyValue("--primary").trim() || "#275df6",
     fill:
       document.documentElement.getAttribute("data-theme") === "dark"
-        ? "rgba(125, 162, 255, 0.16)"
-        : "rgba(47, 91, 231, 0.10)",
-    grid: styles.getPropertyValue("--line").trim() || "rgba(19, 23, 34, 0.08)",
-    tick: styles.getPropertyValue("--text-faint").trim() || "#8b95a7",
+        ? "rgba(134, 168, 255, 0.16)"
+        : "rgba(39, 93, 246, 0.10)",
+    grid: styles.getPropertyValue("--line").trim() || "rgba(17, 24, 39, 0.08)",
+    tick: styles.getPropertyValue("--text-faint").trim() || "#8a94a6",
   };
 }
 
@@ -638,8 +696,6 @@ async function fetchMarketSnapshots(days = 14) {
   return items.filter(Boolean);
 }
 
-let latestMarketSnapshotItems = [];
-
 function renderMarketSnapshots(items) {
   latestMarketSnapshotItems = items;
 
@@ -647,7 +703,11 @@ function renderMarketSnapshots(items) {
 
   if (!items.length) {
     destroySparklineCharts();
-    marketsGridEl.innerHTML = `<div class="market-empty">Data pair lain belum tersedia.</div>`;
+    marketsGridEl.innerHTML = `
+      <div class="market-empty">
+        Pair lain belum tersedia sekarang. Coba perbarui data beberapa saat lagi.
+      </div>
+    `;
     return;
   }
 
@@ -750,23 +810,18 @@ function renderMarketSnapshots(items) {
   marketsGridEl.querySelectorAll(".market-card").forEach((button) => {
     button.addEventListener("click", () => {
       currencySelect.value = button.dataset.currency;
+      button.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
       runAnalysis();
     });
   });
-}
-
-function renderMarketSnapshotsFromExisting() {
-  if (latestMarketSnapshotItems.length) {
-    renderMarketSnapshots(latestMarketSnapshotItems);
-  }
 }
 
 function setLoadingState() {
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = "Memperbarui...";
 
-  chartMetaEl.textContent = "Mengambil data historis terbaru...";
-  verdictTextEl.textContent = "Sedang menyusun ringkasan pair aktif.";
+  chartMetaEl.textContent = "Mengambil data kurs terbaru...";
+  verdictTextEl.textContent = "Sedang menyiapkan insight untuk pair aktif.";
 
   updateMetric(latestRateEl, renderPlainMetric("-"));
   updateMetric(pastCompareEl, renderPlainMetric("-"));
@@ -802,19 +857,13 @@ function setLoadingState() {
         <span class="skeleton-bar lg"></span>
         <div class="skeleton-chart"></div>
       </article>
-      <article class="market-card-skeleton">
-        <span class="skeleton-bar sm"></span>
-        <span class="skeleton-bar md"></span>
-        <span class="skeleton-bar lg"></span>
-        <div class="skeleton-chart"></div>
-      </article>
     `;
   }
 }
 
 function resetButtonState() {
   analyzeBtn.disabled = false;
-  analyzeBtn.textContent = "Perbarui analisis";
+  analyzeBtn.textContent = "Perbarui hasil";
 }
 
 async function runAnalysis() {
@@ -846,7 +895,10 @@ async function runAnalysis() {
     state.latestRateValue = latest;
 
     updateMetric(latestRateEl, renderSplitNumber(latest, { digits: 2, suffix: "IDR" }));
-    updateMetric(pastCompareEl, renderSplitNumber(deltaPct, { digits: 2, suffix: "%", positiveSign: true }));
+    updateMetric(
+      pastCompareEl,
+      renderSplitNumber(deltaPct, { digits: 2, suffix: "%", positiveSign: true })
+    );
     updateMetric(conversionResultEl, renderPlainMetric("-"));
     updateMetric(forecastValueEl, renderPlainMetric(indicative.label));
 
@@ -855,7 +907,7 @@ async function runAnalysis() {
     renderMarketSnapshots(marketItems);
     renderNews(headlines);
 
-    chartMetaEl.textContent = `Periode ${days} hari · ${currency}/IDR · referensi kurs harian`;
+    chartMetaEl.textContent = `Periode ${days} hari · ${currency}/IDR`;
     verdictTextEl.textContent = buildVerdict(currency, latest, first, indicative, headlines.length);
     biasBadgeEl.textContent = indicative.label;
     biasBadgeEl.className = `badge ${indicative.badge}`;
@@ -872,23 +924,27 @@ async function runAnalysis() {
     updateMetric(forecastValueEl, renderPlainMetric("-"));
     updateMetric(conversionResultEl, renderPlainMetric("-"));
 
-    chartMetaEl.textContent = "Gagal memuat data historis.";
+    chartMetaEl.textContent = "Data kurs belum berhasil dimuat.";
     verdictTextEl.textContent =
-      error?.message || "Analisis gagal dimuat. Coba lagi beberapa saat.";
+      error?.message || "Insight belum tersedia. Coba lagi beberapa saat.";
     biasBadgeEl.textContent = "Netral";
     biasBadgeEl.className = "badge neutral";
 
     newsListEl.innerHTML = `
       <article class="news-item">
         <strong>Berita belum bisa dimuat</strong>
-        <p>Sumber berita sedang tidak tersedia atau koneksi sedang bermasalah.</p>
+        <p>Sumber berita sedang tidak tersedia atau koneksi belum stabil.</p>
       </article>
     `;
 
     destroySparklineCharts();
-    marketsGridEl.innerHTML = `<div class="market-empty">Gagal memuat pair lain.</div>`;
+    marketsGridEl.innerHTML = `
+      <div class="market-empty">
+        Kurs lain belum bisa dimuat sekarang. Coba lagi beberapa saat.
+      </div>
+    `;
 
-    setUIState(chartStateEl, "error", error?.message || "Gagal memuat data grafik.");
+    setUIState(chartStateEl, "error", error?.message || "Gagal memuat grafik.");
     setUIState(newsStateEl, "error", "Gagal memuat daftar berita.");
 
     if (state.chart) {
