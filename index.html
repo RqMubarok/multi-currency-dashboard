@@ -4,61 +4,55 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multi Currency Dashboard</title>
-
+  <meta name="description" content="Dashboard kurs rupiah dengan analisis ringan, compare mode, kurs lain, berita ringkas, dan analisis dokumen." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  />
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <header class="topbar topbar-compact">
+  <a class="skip-link" href="#mainContent">Lewati ke konten</a>
+
+  <header class="topbar">
     <div class="topbar-copy">
-      <p class="eyebrow">Dashboard kurs pribadi</p>
-      <h1>Pantau kurs tanpa ribet</h1>
+      <p class="eyebrow">Dashboard kurs berbasis rupiah</p>
+      <h1>Pantau rupiah dengan cepat dan lebih jelas</h1>
       <p class="subtext">
-        Pilih mata uang, masukkan nominal, lalu lihat kurs terbaru, hasil konversi,
-        dan perubahan dalam periode yang kamu pilih.
+        Fokus pada apa yang paling penting: apakah rupiah sedang membaik, melemah,
+        atau relatif stabil terhadap mata uang yang kamu pilih.
       </p>
     </div>
 
     <div class="topbar-actions">
-      <button
-        id="themeToggle"
-        class="ghost-btn icon-btn"
-        type="button"
-        aria-label="Ganti tema"
-      >
-        🌗
-      </button>
+      <button id="themeToggle" class="ghost-btn icon-btn" type="button" aria-label="Ganti tema">🌗</button>
     </div>
   </header>
 
-  <main class="layout">
+  <main id="mainContent" class="layout">
     <section class="dashboard-shell">
-      <!-- Kontrol utama -->
       <section class="panel controls-panel">
         <div class="section-head">
           <div>
-            <h2>Atur mata uang & nominal</h2>
-            <p>Pilih pair, periode, arah konversi, dan nominal yang ingin dihitung.</p>
+            <h2>Kontrol utama</h2>
+            <p>Pilih pair aktif, periode, dan nominal konversi dengan cepat.</p>
           </div>
         </div>
 
-        <div class="control-grid control-grid-optimized">
+        <div class="control-grid">
           <label class="field">
-            <span>Mata uang tujuan</span>
+            <span>Mata uang</span>
             <select id="currencySelect">
-              <option value="AUD" selected>AUD</option>
               <option value="USD">USD</option>
               <option value="SGD">SGD</option>
+              <option value="AUD" selected>AUD</option>
               <option value="JPY">JPY</option>
               <option value="EUR">EUR</option>
               <option value="GBP">GBP</option>
+              <option value="MYR">MYR</option>
+              <option value="CNY">CNY</option>
+              <option value="SAR">SAR</option>
+              <option value="HKD">HKD</option>
             </select>
           </label>
 
@@ -68,65 +62,47 @@
               <option value="7">7 hari</option>
               <option value="14">14 hari</option>
               <option value="30" selected>30 hari</option>
+              <option value="90">90 hari</option>
+              <option value="180">180 hari</option>
             </select>
           </label>
 
-          <label class="field field-span-2">
+          <div class="field field-span-2">
             <span>Arah konversi</span>
             <div class="switch-row">
-              <button
-                class="switch-btn active"
-                type="button"
-                data-mode="IDR_TO_FX"
-              >
-                IDR → Valas
-              </button>
-              <button
-                class="switch-btn"
-                type="button"
-                data-mode="FX_TO_IDR"
-              >
-                Valas → IDR
-              </button>
+              <button class="switch-btn active" type="button" data-mode="IDR_TO_FX">IDR → Valas</button>
+              <button class="switch-btn" type="button" data-mode="FX_TO_IDR">Valas → IDR</button>
             </div>
-          </label>
+          </div>
 
           <label class="field field-span-2">
             <span>Nominal</span>
-            <input
-              id="amountInput"
-              type="text"
-              inputmode="decimal"
-              value="1.000.000"
-              placeholder="Masukkan nominal"
-            />
+            <input id="amountInput" type="text" inputmode="decimal" value="1.000.000" placeholder="Masukkan nominal" />
           </label>
+
+          <div class="field field-span-2">
+            <span>Nominal cepat</span>
+            <div id="presetChips" class="preset-chips">
+              <button type="button" class="chip-btn active" data-amount="1000000">Rp1 jt</button>
+              <button type="button" class="chip-btn" data-amount="5000000">Rp5 jt</button>
+              <button type="button" class="chip-btn" data-amount="10000000">Rp10 jt</button>
+              <button type="button" class="chip-btn" data-amount="25000000">Rp25 jt</button>
+            </div>
+          </div>
 
           <div class="field action-field">
             <span>Pantauan</span>
-            <button id="watchlistBtn" class="ghost-btn action-soft" type="button">
-              Simpan pair ini
-            </button>
+            <button id="watchlistBtn" class="ghost-btn action-soft" type="button">Simpan pair ini</button>
           </div>
 
           <div class="field action-field">
             <span>Data</span>
-            <button id="analyzeBtn" class="primary-btn" type="button">
-              Perbarui hasil
-            </button>
+            <button id="analyzeBtn" class="primary-btn" type="button">Perbarui hasil</button>
           </div>
         </div>
       </section>
 
-      <!-- Hasil utama -->
       <section class="summary-block">
-        <div class="section-head section-head-tight">
-          <div>
-            <h2>Hasil utama</h2>
-            <p>Lihat angka terpenting untuk pair aktif dalam satu tampilan.</p>
-          </div>
-        </div>
-
         <div class="cards-grid cards-grid-strong">
           <article class="panel stat-card stat-card-primary">
             <span class="stat-label">Kurs terbaru</span>
@@ -135,7 +111,8 @@
 
           <article class="panel stat-card">
             <span class="stat-label">Perubahan periode</span>
-            <strong id="pastCompare">-</strong>
+            <strong id="pastCompare" class="metric-neutral">-</strong>
+            <small id="pastCompareHint" class="metric-hint">Menunggu data</small>
           </article>
 
           <article class="panel stat-card">
@@ -146,60 +123,141 @@
           <article class="panel stat-card">
             <span class="stat-label">Arah indikatif</span>
             <strong id="forecastValue">-</strong>
-            <small class="stat-disclaimer">
-              Dibaca sebagai sinyal ringkas, bukan prediksi pasar.
-            </small>
+            <small class="stat-disclaimer">Sinyal ringkas, bukan prediksi pasar.</small>
           </article>
         </div>
       </section>
 
-      <!-- Grafik -->
+      <section class="panel analytics-panel">
+        <div class="section-head">
+          <div>
+            <h2>Analisis tambahan</h2>
+            <p>Posisi kurs saat ini dibanding rata-rata, titik tinggi, dan titik rendah periode aktif.</p>
+          </div>
+        </div>
+
+        <div class="analytics-grid">
+          <article class="analytic-item">
+            <span class="analytic-label">Rata-rata periode</span>
+            <strong id="averageRate">-</strong>
+          </article>
+          <article class="analytic-item">
+            <span class="analytic-label">Titik terendah</span>
+            <strong id="lowestRate">-</strong>
+          </article>
+          <article class="analytic-item">
+            <span class="analytic-label">Titik tertinggi</span>
+            <strong id="highestRate">-</strong>
+          </article>
+          <article class="analytic-item">
+            <span class="analytic-label">Volatilitas</span>
+            <strong id="volatilityLabel">-</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel compare-panel">
+        <div class="section-head">
+          <div>
+            <h2>Bandingkan nominal</h2>
+            <p>Lihat hasil nominal yang sama di beberapa pair paling relevan.</p>
+          </div>
+        </div>
+        <div id="compareGrid" class="compare-grid"></div>
+      </section>
+
       <section class="panel chart-panel">
         <div class="section-head">
           <div>
             <h2>Pergerakan kurs</h2>
-            <p id="chartMeta">Lihat perubahan nilai tukar untuk pair yang sedang dipilih.</p>
+            <p id="chartMeta">Memuat data pair aktif.</p>
           </div>
         </div>
 
-        <div id="chartState" class="ui-state hidden">
-          Grafik akan tampil setelah data kurs berhasil dimuat.
-        </div>
-
+        <div id="chartState" class="ui-state hidden"></div>
         <div class="chart-wrap">
           <canvas id="rateChart"></canvas>
         </div>
       </section>
 
-      <!-- Insight singkat -->
       <section class="panel verdict-panel">
         <div class="section-head">
           <div>
             <h2>Insight singkat</h2>
-            <p>Bacaan cepat dari perubahan kurs dan berita terbaru untuk pair aktif.</p>
+            <p>Bacaan cepat dari sudut pandang rupiah.</p>
           </div>
-
           <span id="biasBadge" class="badge neutral">Netral</span>
         </div>
-
-        <p id="verdictText">
-          Insight akan muncul setelah kamu memilih mata uang dan memperbarui data.
-        </p>
+        <p id="verdictText">Insight akan muncul setelah data berhasil dimuat.</p>
       </section>
 
-      <!-- Kurs lainnya -->
       <section class="panel markets-panel">
         <div class="section-head">
           <div>
             <h2>Kurs lainnya</h2>
-            <p>Geser untuk melihat pair lain dan buka analisisnya dengan sekali tap.</p>
+            <p>Geser untuk melihat pair lain tanpa memenuhi layar.</p>
           </div>
         </div>
-
         <div id="marketsGrid" class="markets-grid"></div>
       </section>
 
-      <!-- Meta data -->
+      <section class="detail-grid">
+        <section class="panel watchlist-panel">
+          <div class="section-head">
+            <div>
+              <h2>Kurs tersimpan</h2>
+              <p>Pair yang sering kamu pantau.</p>
+            </div>
+            <button id="clearWatchlist" class="ghost-btn action-link" type="button">Hapus semua</button>
+          </div>
+          <div id="watchlistState" class="ui-state hidden"></div>
+          <div id="watchlistItems" class="watchlist-items"></div>
+        </section>
+
+        <section class="panel news-panel">
+          <div class="section-head">
+            <div>
+              <h2>Berita penggerak kurs</h2>
+              <p>Headline ringkas agar dashboard tetap padat dan mudah dibaca.</p>
+            </div>
+          </div>
+          <div id="newsState" class="ui-state hidden"></div>
+          <div id="newsList" class="news-list"></div>
+        </section>
+      </section>
+
+      <section class="panel doc-panel">
+        <div class="section-head">
+          <div>
+            <h2>Analisa dokumen / press release</h2>
+            <p>Tempel link publik untuk dianalisis secara ringkas dengan progress bertahap.</p>
+          </div>
+        </div>
+
+        <div class="doc-grid">
+          <label class="field field-span-2">
+            <span>URL dokumen / artikel</span>
+            <input id="docUrlInput" type="url" placeholder="https://..." />
+          </label>
+          <div class="field action-field">
+            <span>Analisis</span>
+            <button id="analyzeDocBtn" class="primary-btn" type="button">Analisa dokumen</button>
+          </div>
+        </div>
+
+        <div id="docProgress" class="doc-progress hidden" aria-live="polite">
+          <div class="doc-progress-top">
+            <strong id="docProgressLabel">Menyiapkan analisis...</strong>
+            <span id="docProgressPercent">0%</span>
+          </div>
+          <div class="progress-track"><div id="docProgressBar" class="progress-bar"></div></div>
+        </div>
+
+        <div id="docResult" class="doc-result muted-card">
+          Tempel link dokumen atau press release untuk melihat ringkasan singkat dan dampaknya terhadap rupiah.
+        </div>
+      </section>
+
       <section class="panel meta-panel">
         <div class="meta-grid">
           <div class="meta-item">
@@ -211,41 +269,6 @@
             <strong id="lastUpdatedText">-</strong>
           </div>
         </div>
-      </section>
-
-      <!-- Kurs tersimpan & berita -->
-      <section class="detail-grid">
-        <section class="panel watchlist-panel">
-          <div class="section-head">
-            <div>
-              <h2>Kurs tersimpan</h2>
-              <p>Simpan pair yang sering kamu cek agar lebih cepat dibuka lagi.</p>
-            </div>
-
-            <button id="clearWatchlist" class="ghost-btn action-link" type="button">
-              Hapus semua
-            </button>
-          </div>
-
-          <div id="watchlistState" class="ui-state hidden">
-            Belum ada kurs yang disimpan. Tambahkan pair yang sering kamu cek agar aksesnya lebih cepat.
-          </div>
-          <div id="watchlistItems" class="watchlist-items"></div>
-        </section>
-
-        <section class="panel news-panel">
-          <div class="section-head">
-            <div>
-              <h2>Berita penggerak kurs</h2>
-              <p>Headline terbaru yang bisa membantu membaca sentimen pair aktif.</p>
-            </div>
-          </div>
-
-          <div id="newsState" class="ui-state hidden">
-            Belum ada berita untuk pair ini. Coba ganti mata uang atau perbarui data beberapa saat lagi.
-          </div>
-          <div id="newsList" class="news-list"></div>
-        </section>
       </section>
     </section>
   </main>
