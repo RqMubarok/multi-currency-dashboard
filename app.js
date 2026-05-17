@@ -263,8 +263,15 @@ function classifyIndicativeDirection(latest, forecast) {
 function calculateAverage(values) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
-function calculateLow(values) { return values.length ? Math.min(...values) : null; }
-function calculateHigh(values) { return values.length ? Math.max(...values) : null; }
+
+function calculateLow(values) {
+  return values.length ? Math.min(...values) : null;
+}
+
+function calculateHigh(values) {
+  return values.length ? Math.max(...values) : null;
+}
+
 function calculateVolatilityLabel(values) {
   if (!values.length) return "-";
   const low = Math.min(...values);
@@ -347,6 +354,7 @@ function inferReleaseType(item) {
   const mediaWords = ["reuters", "bloomberg", "cnbc", "investing", "market", "news", "media"];
   const official = officialWords.some((word) => text.includes(word));
   const media = mediaWords.some((word) => text.includes(word));
+
   if (official && !media) return { type: "official", label: "Rilis resmi", confidence: 0.85 };
   if (official && media) return { type: "ambiguous", label: "Butuh validasi", confidence: 0.55 };
   if (media) return { type: "media", label: "Headline media", confidence: 0.62 };
@@ -356,18 +364,21 @@ function inferReleaseType(item) {
 async function fetchReleaseCandidates(currency) {
   const meta = getCurrencyMeta(currency);
   const queries = meta.queries.slice(0, 2);
-  const settled = await Promise.all(queries.map(async (query) => {
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
-    try {
-      const response = await fetch(apiUrl, { cache: "no-store" });
-      if (!response.ok) throw new Error();
-      const data = await response.json();
-      return Array.isArray(data.items) ? data.items.slice(0, 3) : [];
-    } catch {
-      return [];
-    }
-  }));
+
+  const settled = await Promise.all(
+    queries.map(async (query) => {
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+      try {
+        const response = await fetch(apiUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        return Array.isArray(data.items) ? data.items.slice(0, 3) : [];
+      } catch {
+        return [];
+      }
+    })
+  );
 
   const merged = settled.flat().map((item) => {
     const releaseMeta = inferReleaseType(item);
@@ -384,6 +395,7 @@ async function fetchReleaseCandidates(currency) {
 
   const unique = [];
   const seen = new Set();
+
   for (const item of merged) {
     const key = `${item.title}|${item.source}`;
     if (!seen.has(key)) {
@@ -402,6 +414,7 @@ function renderNews(items) {
     newsListEl.innerHTML = `<article class="news-item"><strong>Belum ada berita pendukung</strong><div class="news-meta">Coba ganti mata uang atau perbarui data beberapa saat lagi.</div></article>`;
     return;
   }
+
   setUIState(newsStateEl, "", "");
   newsListEl.innerHTML = items.map((item) => {
     const source = item.source || "Google News";
@@ -413,10 +426,12 @@ function renderNews(items) {
 function addCurrentCurrencyToWatchlist() {
   const currency = currencySelect.value;
   const exists = state.watchlist.some((entry) => entry.currency === currency);
+
   if (exists) {
     setUIState(watchlistStateEl, "success", `${currency} sudah ada di pantauan.`);
     return;
   }
+
   state.watchlist.push({ currency, savedAt: new Date().toISOString() });
   renderWatchlist();
   setUIState(watchlistStateEl, "success", `${currency} berhasil disimpan.`);
@@ -434,6 +449,7 @@ function renderWatchlist() {
     watchlistItemsEl.innerHTML = `<article class="watch-item"><strong>Belum ada pair tersimpan</strong><p>Simpan pair dari panel atas agar lebih cepat dibuka lagi nanti.</p></article>`;
     return;
   }
+
   setUIState(watchlistStateEl, "", "");
   watchlistItemsEl.innerHTML = state.watchlist.map((item) => {
     const meta = getCurrencyMeta(item.currency);
@@ -445,10 +461,12 @@ function updateConversionOnly() {
   const amount = state.amountRaw;
   const currency = currencySelect.value;
   const latest = state.latestRateValue;
+
   if (!Number.isFinite(latest) || !Number.isFinite(amount)) {
     updateMetric(conversionResultEl, renderPlainMetric("-"));
     return;
   }
+
   if (state.mode === "IDR_TO_FX") {
     const result = amount / latest;
     updateMetric(conversionResultEl, formatSplitNumber(result, { digits: 2, suffix: currency }));
@@ -461,9 +479,14 @@ function updateConversionOnly() {
 function buildVerdict(currency, latest, first, indicative, release) {
   const pct = ((latest - first) / first) * 100;
   let rupiahState = "relatif stabil";
+
   if (pct > 0.5) rupiahState = "melemah";
   if (pct < -0.5) rupiahState = "menguat";
-  const releaseText = release ? `Rilis yang paling menonjol saat ini: ${release.label.toLowerCase()} dari ${release.source || "sumber terkait"}.` : "Belum ada rilis yang cukup kuat untuk dijadikan konteks utama.";
+
+  const releaseText = release
+    ? `Rilis yang paling menonjol saat ini: ${release.label.toLowerCase()} dari ${release.source || "sumber terkait"}.`
+    : "Belum ada rilis yang cukup kuat untuk dijadikan konteks utama.";
+
   return `Terhadap ${currency}, rupiah ${rupiahState} pada periode aktif. Sinyal saat ini ${indicative.label.toLowerCase()}. ${releaseText}`;
 }
 
@@ -471,7 +494,9 @@ function getChartColors() {
   const styles = getComputedStyle(document.documentElement);
   return {
     line: styles.getPropertyValue("--primary").trim() || "#2459d9",
-    fill: document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(138, 168, 255, 0.16)" : "rgba(36, 89, 217, 0.10)",
+    fill: document.documentElement.getAttribute("data-theme") === "dark"
+      ? "rgba(138, 168, 255, 0.16)"
+      : "rgba(36, 89, 217, 0.10)",
     grid: styles.getPropertyValue("--line").trim() || "rgba(20, 32, 51, 0.08)",
     tick: styles.getPropertyValue("--text-faint").trim() || "#8a97a9",
   };
@@ -480,10 +505,25 @@ function getChartColors() {
 function renderChart(labels, values, currency) {
   const canvas = document.getElementById("rateChart");
   const colors = getChartColors();
+
   if (!state.chart) {
     state.chart = new Chart(canvas, {
       type: "line",
-      data: { labels, datasets: [{ label: `${currency}/IDR`, data: values, borderColor: colors.line, backgroundColor: colors.fill, fill: true, tension: 0.32, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 14, borderWidth: 2 }] },
+      data: {
+        labels,
+        datasets: [{
+          label: `${currency}/IDR`,
+          data: values,
+          borderColor: colors.line,
+          backgroundColor: colors.fill,
+          fill: true,
+          tension: 0.32,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHitRadius: 14,
+          borderWidth: 2,
+        }],
+      },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -491,17 +531,34 @@ function renderChart(labels, values, currency) {
         normalized: true,
         plugins: {
           legend: { display: false },
-          tooltip: { mode: "index", intersect: false, displayColors: false, callbacks: { label: (context) => ` ${formatNumber(context.parsed.y, 2)} IDR` } },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+            displayColors: false,
+            callbacks: {
+              label: (context) => ` ${formatNumber(context.parsed.y, 2)} IDR`,
+            },
+          },
         },
         interaction: { mode: "index", intersect: false },
         scales: {
-          x: { ticks: { color: colors.tick, maxTicksLimit: 6 }, grid: { color: colors.grid, drawBorder: false } },
-          y: { ticks: { color: colors.tick, callback: (value) => formatCompactNumber(value, 0) }, grid: { color: colors.grid, drawBorder: false } },
+          x: {
+            ticks: { color: colors.tick, maxTicksLimit: 6 },
+            grid: { color: colors.grid, drawBorder: false },
+          },
+          y: {
+            ticks: {
+              color: colors.tick,
+              callback: (value) => formatCompactNumber(value, 0),
+            },
+            grid: { color: colors.grid, drawBorder: false },
+          },
         },
       },
     });
     return;
   }
+
   state.chart.data.labels = labels;
   state.chart.data.datasets[0].label = `${currency}/IDR`;
   state.chart.data.datasets[0].data = values;
@@ -544,22 +601,27 @@ async function fetchMarketSnapshots(days = 14) {
       const data = await fetchRates(currency, days);
       const labels = Object.keys(data.rates);
       const values = labels.map((date) => data.rates[date].IDR);
+
       if (!values.length) return null;
+
       const first = values[0];
       const latest = values[values.length - 1];
       const absoluteChange = latest - first;
       const deltaPct = ((latest - first) / first) * 100;
+
       return { currency, labels, values, latest, absoluteChange, deltaPct };
     } catch {
       return null;
     }
   }));
+
   return items.filter(Boolean);
 }
 
 function renderMarketSnapshots(items) {
   latestMarketSnapshotItems = items;
   if (!marketsGridEl) return;
+
   if (!items.length) {
     destroySparklineCharts();
     marketsGridEl.innerHTML = `<div class="market-empty">Pair lain belum tersedia sekarang.</div>`;
@@ -567,27 +629,56 @@ function renderMarketSnapshots(items) {
   }
 
   destroySparklineCharts();
+
   marketsGridEl.innerHTML = items.map((item) => {
     const isActive = item.currency === currencySelect.value;
     const trend = getTrendMeta(item.deltaPct);
     const absolutePrefix = item.absoluteChange >= 0 ? "+" : "-";
     const deltaClass = item.absoluteChange > 0.5 ? "up" : item.absoluteChange < -0.5 ? "down" : "flat";
     const meta = getCurrencyMeta(item.currency);
+
     return `<button type="button" class="market-card ${isActive ? "active" : ""}" data-currency="${item.currency}" aria-label="Buka analisis ${item.currency} terhadap IDR"><div class="market-card-head"><div class="market-card-identity"><span class="currency-logo" aria-hidden="true">${meta.icon}</span><div class="market-card-pair-wrap"><span class="market-card-pair">${item.currency} / IDR</span><div class="market-card-subrate">${escapeHtml(meta.name)}</div></div></div></div><div class="market-card-main"><div class="market-card-rate">${formatSplitNumber(item.latest, { digits: 2 })}</div><div class="market-card-change-wrap"><span class="market-card-delta ${deltaClass}">${absolutePrefix}${formatNumber(Math.abs(item.absoluteChange), 2)}</span><span class="market-card-badge ${trend.badgeClass}"><span>${trend.icon}</span><span>${trend.label}</span></span></div></div><div class="market-sparkline"><canvas id="sparkline-${item.currency}"></canvas></div></button>`;
   }).join("");
 
   items.forEach((item) => {
     const canvas = document.getElementById(`sparkline-${item.currency}`);
     if (!canvas) return;
+
     const rupiahGood = item.deltaPct < -0.5;
     const rupiahBad = item.deltaPct > 0.5;
     const lineColor = rupiahGood ? "#17803d" : rupiahBad ? "#b42318" : "#7f8998";
     const fillColor = rupiahGood ? "rgba(23, 128, 61, 0.10)" : rupiahBad ? "rgba(180, 35, 24, 0.10)" : "rgba(127, 137, 152, 0.10)";
+
     const chart = new Chart(canvas, {
       type: "line",
-      data: { labels: item.labels, datasets: [{ data: item.values, borderColor: lineColor, backgroundColor: fillColor, fill: true, borderWidth: 1.4, tension: 0.32, pointRadius: 0, pointHoverRadius: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } },
+      data: {
+        labels: item.labels,
+        datasets: [{
+          data: item.values,
+          borderColor: lineColor,
+          backgroundColor: fillColor,
+          fill: true,
+          borderWidth: 1.4,
+          tension: 0.32,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: { display: false },
+          y: { display: false },
+        },
+      },
     });
+
     sparklineCharts.set(item.currency, chart);
   });
 
@@ -602,12 +693,15 @@ function renderMarketSnapshots(items) {
 
 function renderCompareCards(items) {
   if (!compareGridEl) return;
+
   if (!items.length) {
     compareGridEl.innerHTML = `<article class="compare-card"><span class="compare-label">Belum ada data</span><strong>-</strong><p class="compare-subtext">Perbandingan akan tampil setelah data berhasil dimuat.</p></article>`;
     return;
   }
+
   const filtered = items.filter((item) => COMPARE_CURRENCIES.includes(item.currency)).slice(0, 4);
   const amount = state.amountRaw || 0;
+
   compareGridEl.innerHTML = filtered.map((item) => {
     const result = state.mode === "IDR_TO_FX" ? amount / item.latest : amount * item.latest;
     return `<article class="compare-card"><span class="compare-label">${item.currency}/IDR</span><strong>${formatNumber(result, 2)} ${state.mode === "IDR_TO_FX" ? item.currency : "IDR"}</strong><p class="compare-subtext">Kurs ${formatNumber(item.latest, 2)} IDR</p></article>`;
@@ -617,13 +711,16 @@ function renderCompareCards(items) {
 function renderReleasePanel(items) {
   state.releases = items;
   state.selectedReleaseIndex = 0;
+
   if (!items.length) {
     releasePrimaryEl.innerHTML = `Belum ada rilis utama yang terdeteksi.`;
     releaseListEl.innerHTML = `<article class="release-item"><strong>Belum ada kandidat rilis</strong><div class="release-meta">Coba muat ulang atau ganti mata uang.</div></article>`;
     return;
   }
+
   const primary = items[0];
   releasePrimaryEl.innerHTML = `<span class="release-tag ${primary.type}">${escapeHtml(primary.label)}</span><p><strong>${escapeHtml(primary.title)}</strong></p><div class="release-meta">${escapeHtml(primary.source)} · ${escapeHtml(formatDateOnly(primary.pubDate) || "Tanggal tidak tersedia")}</div>`;
+
   releaseListEl.innerHTML = items.map((item, index) => `
     <article class="release-item ${index === 0 ? "active" : ""}" data-index="${index}" tabindex="0">
       <span class="release-tag ${item.type}">${escapeHtml(item.label)}</span>
@@ -637,6 +734,7 @@ function renderReleasePanel(items) {
       const index = Number(itemEl.dataset.index || 0);
       state.selectedReleaseIndex = index;
       const selected = state.releases[index];
+
       if (selected?.type === "ambiguous") {
         openReleaseValidationDialog();
       } else {
@@ -649,12 +747,17 @@ function renderReleasePanel(items) {
 function applySelectedRelease() {
   const release = state.releases[state.selectedReleaseIndex];
   if (!release) return;
-  releaseListEl.querySelectorAll(".release-item").forEach((item, index) => item.classList.toggle("active", index === state.selectedReleaseIndex));
+
+  releaseListEl.querySelectorAll(".release-item").forEach((item, index) => {
+    item.classList.toggle("active", index === state.selectedReleaseIndex);
+  });
+
   releasePrimaryEl.innerHTML = `<span class="release-tag ${release.type}">${escapeHtml(release.label)}</span><p><strong><a href="${escapeHtml(release.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(release.title)}</a></strong></p><div class="release-meta">${escapeHtml(release.source)} · ${escapeHtml(formatDateOnly(release.pubDate) || "Tanggal tidak tersedia")}</div>`;
 }
 
 function openReleaseValidationDialog() {
   if (!releaseDialog || !state.releases.length) return;
+
   dialogOptionsEl.innerHTML = state.releases.slice(0, 3).map((item, index) => `
     <button type="button" class="dialog-option ${index === state.selectedReleaseIndex ? "active" : ""}" data-index="${index}">
       <span class="release-tag ${item.type}">${escapeHtml(item.label)}</span>
@@ -671,7 +774,9 @@ function openReleaseValidationDialog() {
     });
   });
 
-  if (typeof releaseDialog.showModal === "function") releaseDialog.showModal();
+  if (typeof releaseDialog.showModal === "function") {
+    releaseDialog.showModal();
+  }
 }
 
 function setLoadingState() {
@@ -679,6 +784,7 @@ function setLoadingState() {
   analyzeBtn.textContent = "Memperbarui...";
   chartMetaEl.textContent = "Mengambil data kurs terbaru...";
   verdictTextEl.textContent = "Sedang menyiapkan insight untuk pair aktif.";
+
   updateMetric(latestRateEl, renderPlainMetric("-"));
   updateMetric(pastCompareEl, renderPlainMetric("-"));
   updateMetric(forecastValueEl, renderPlainMetric("-"));
@@ -687,14 +793,18 @@ function setLoadingState() {
   updateMetric(lowestRateEl, renderPlainMetric("-"));
   updateMetric(highestRateEl, renderPlainMetric("-"));
   updateMetric(volatilityLabelEl, renderPlainMetric("-"));
+
   applyPastCompareStyle(NaN);
   biasBadgeEl.textContent = "Netral";
   biasBadgeEl.className = "badge neutral";
+
   updateDataSourceText();
   updateLastUpdated(new Date().toISOString());
+
   setUIState(chartStateEl, "loading", "Grafik sedang dimuat...");
   setUIState(newsStateEl, "loading", "Headline pendukung sedang dimuat...");
   setUIState(releaseStateEl, "loading", "Mencari rilis terbaru...");
+
   if (marketsGridEl) {
     marketsGridEl.innerHTML = `<article class="market-card-skeleton"><span class="skeleton-bar sm"></span><span class="skeleton-bar md"></span><span class="skeleton-bar lg"></span><div class="skeleton-chart"></div></article><article class="market-card-skeleton"><span class="skeleton-bar sm"></span><span class="skeleton-bar md"></span><span class="skeleton-bar lg"></span><div class="skeleton-chart"></div></article><article class="market-card-skeleton"><span class="skeleton-bar sm"></span><span class="skeleton-bar md"></span><span class="skeleton-bar lg"></span><div class="skeleton-chart"></div></article>`;
   }
@@ -709,10 +819,12 @@ async function loadReleases(currency) {
   setUIState(releaseStateEl, "loading", "Mencari rilis terbaru...");
   const releases = await fetchReleaseCandidates(currency);
   renderReleasePanel(releases);
+
   if (!releases.length) {
     setUIState(releaseStateEl, "success", "Belum ada rilis utama yang berhasil ditemukan.");
     return [];
   }
+
   setUIState(releaseStateEl, "", "");
   applySelectedRelease();
   return releases;
@@ -727,6 +839,7 @@ async function runAnalysis() {
     const rateData = await fetchRates(currency, days);
     const labels = Object.keys(rateData.rates);
     const values = labels.map((date) => rateData.rates[date].IDR);
+
     if (!values.length) throw new Error("Data historis kosong.");
 
     const first = values[0];
@@ -753,6 +866,7 @@ async function runAnalysis() {
 
     updateConversionOnly();
     renderChart(labels, values, currency);
+
     chartMetaEl.textContent = `Periode ${days} hari · ${currency}/IDR`;
     biasBadgeEl.textContent = getRupiahChangeState(deltaPct).hint;
     biasBadgeEl.className = `badge ${deltaPct < -0.5 ? "bullish" : deltaPct > 0.5 ? "bearish" : "neutral"}`;
@@ -773,6 +887,7 @@ async function runAnalysis() {
     verdictTextEl.textContent = buildVerdict(currency, latest, first, indicative, releases[0]);
   } catch (error) {
     state.latestRateValue = null;
+
     updateMetric(latestRateEl, renderPlainMetric("-"));
     updateMetric(pastCompareEl, renderPlainMetric("-"));
     updateMetric(forecastValueEl, renderPlainMetric("-"));
@@ -781,19 +896,24 @@ async function runAnalysis() {
     updateMetric(lowestRateEl, renderPlainMetric("-"));
     updateMetric(highestRateEl, renderPlainMetric("-"));
     updateMetric(volatilityLabelEl, renderPlainMetric("-"));
+
     applyPastCompareStyle(NaN);
     renderCompareCards([]);
+
     chartMetaEl.textContent = "Data kurs belum berhasil dimuat.";
     verdictTextEl.textContent = error?.message || "Insight belum tersedia. Coba lagi beberapa saat.";
     biasBadgeEl.textContent = "Netral";
     biasBadgeEl.className = "badge neutral";
+
     newsListEl.innerHTML = `<article class="news-item"><strong>Berita belum bisa dimuat</strong><div class="news-meta">Sumber berita sedang tidak tersedia atau koneksi belum stabil.</div></article>`;
     renderReleasePanel([]);
     destroySparklineCharts();
     marketsGridEl.innerHTML = `<div class="market-empty">Kurs lain belum bisa dimuat sekarang.</div>`;
+
     setUIState(chartStateEl, "error", error?.message || "Gagal memuat grafik.");
     setUIState(newsStateEl, "error", "Gagal memuat headline pendukung.");
     setUIState(releaseStateEl, "error", "Gagal memuat rilis terbaru.");
+
     if (state.chart) {
       state.chart.data.labels = [];
       state.chart.data.datasets[0].data = [];
